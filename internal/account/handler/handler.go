@@ -1,3 +1,4 @@
+// Package handler implements HTTP handlers for account management endpoints.
 package handler
 
 import (
@@ -9,14 +10,17 @@ import (
 	"github.com/qw-trading/platform/pkg/response"
 )
 
+// Handler holds dependencies for account-related HTTP handlers.
 type Handler struct {
 	repo *repository.AccountRepository
 }
 
+// New creates a new Handler with the given repository.
 func New(repo *repository.AccountRepository) *Handler {
 	return &Handler{repo: repo}
 }
 
+// AccountResponse is the JSON response containing account information.
 type AccountResponse struct {
 	ID            string  `json:"id"`
 	UserID        string  `json:"user_id"`
@@ -27,16 +31,19 @@ type AccountResponse struct {
 	Status        string  `json:"status"`
 }
 
+// DepositRequest is the JSON request body for depositing funds.
 type DepositRequest struct {
 	Currency string  `json:"currency"`
 	Amount   float64 `json:"amount"`
 }
 
+// DepositResponse is the JSON response after a successful deposit.
 type DepositResponse struct {
 	AccountID  string  `json:"account_id"`
 	NewBalance float64 `json:"new_balance"`
 }
 
+// ListAccounts handles GET /accounts. Returns all accounts for the authenticated user.
 func (h *Handler) ListAccounts(w http.ResponseWriter, r *http.Request) {
 	userID, ok := middleware.GetUserID(r)
 	if !ok {
@@ -50,9 +57,9 @@ func (h *Handler) ListAccounts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var result []AccountResponse
-	for _, acc := range accounts {
-		result = append(result, AccountResponse{
+	result := make([]AccountResponse, len(accounts))
+	for i, acc := range accounts {
+		result[i] = AccountResponse{
 			ID:            acc.ID.String(),
 			UserID:        acc.UserID.String(),
 			Type:          string(acc.Type),
@@ -60,12 +67,14 @@ func (h *Handler) ListAccounts(w http.ResponseWriter, r *http.Request) {
 			FrozenBalance: acc.FrozenBalance,
 			Currency:      acc.Currency,
 			Status:        string(acc.Status),
-		})
+		}
 	}
 
 	response.Success(w, map[string]interface{}{"accounts": result})
 }
 
+// Deposit handles POST /accounts/deposit. It credits the specified amount to
+// the user's account for the given currency.
 func (h *Handler) Deposit(w http.ResponseWriter, r *http.Request) {
 	userID, ok := middleware.GetUserID(r)
 	if !ok {

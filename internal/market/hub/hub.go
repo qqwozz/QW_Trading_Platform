@@ -1,3 +1,5 @@
+// Package hub provides a WebSocket hub for broadcasting real-time market data
+// to connected clients.
 package hub
 
 import (
@@ -9,6 +11,8 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+// upgrader configures WebSocket connection upgrades with permissive origin checks
+// for development. In production, CheckOrigin should validate allowed origins.
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
@@ -17,6 +21,7 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
+// Hub manages WebSocket client connections and broadcasts messages to subscribers.
 type Hub struct {
 	clients    map[*Client]bool
 	broadcast  chan []byte
@@ -25,6 +30,7 @@ type Hub struct {
 	mu         sync.RWMutex
 }
 
+// Client represents a single WebSocket connection subscribed to market data.
 type Client struct {
 	hub    *Hub
 	conn   *websocket.Conn
@@ -32,12 +38,14 @@ type Client struct {
 	symbol string
 }
 
+// WSMessage is the envelope for all WebSocket messages.
 type WSMessage struct {
 	Type   string          `json:"type"`
 	Symbol string          `json:"symbol,omitempty"`
 	Data   json.RawMessage `json:"data,omitempty"`
 }
 
+// NewHub creates a new Hub with initialized channels and client map.
 func NewHub() *Hub {
 	return &Hub{
 		clients:    make(map[*Client]bool),
@@ -47,6 +55,8 @@ func NewHub() *Hub {
 	}
 }
 
+// Run starts the hub's main event loop, processing client registrations,
+// disconnections, and message broadcasts.
 func (h *Hub) Run() {
 	for {
 		select {
@@ -71,6 +81,7 @@ func (h *Hub) Run() {
 				select {
 				case client.send <- message:
 				default:
+					// Client buffer full; disconnect it to avoid blocking.
 					close(client.send)
 					delete(h.clients, client)
 				}
@@ -80,6 +91,8 @@ func (h *Hub) Run() {
 	}
 }
 
+// HandleWebSocket upgrades an HTTP request to a WebSocket connection and
+// registers the new client with the hub.
 func (h *Hub) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -99,6 +112,8 @@ func (h *Hub) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	go client.readPump()
 }
 
+// BroadcastTicker sends a ticker update to all clients subscribed to the
+// given symbol (or all clients if symbol is empty).
 func (h *Hub) BroadcastTicker(symbol string, data []byte) {
 	msg := WSMessage{
 		Type:   "ticker",
@@ -119,6 +134,7 @@ func (h *Hub) BroadcastTicker(symbol string, data []byte) {
 			select {
 			case client.send <- payload:
 			default:
+				// Client buffer full; disconnect it.
 				close(client.send)
 				delete(h.clients, client)
 			}
@@ -126,6 +142,8 @@ func (h *Hub) BroadcastTicker(symbol string, data []byte) {
 	}
 }
 
+// BroadcastOrderBook sends an order book update to all clients subscribed to
+// the given symbol (or all clients if symbol is empty).
 func (h *Hub) BroadcastOrderBook(symbol string, data []byte) {
 	msg := WSMessage{
 		Type:   "orderbook",
@@ -146,6 +164,7 @@ func (h *Hub) BroadcastOrderBook(symbol string, data []byte) {
 			select {
 			case client.send <- payload:
 			default:
+				// Client buffer full; disconnect it.
 				close(client.send)
 				delete(h.clients, client)
 			}
@@ -153,6 +172,8 @@ func (h *Hub) BroadcastOrderBook(symbol string, data []byte) {
 	}
 }
 
+// readPump reads incoming WebSocket messages and handles subscribe/unsubscribe
+// commands from the client.
 func (c *Client) readPump() {
 	defer func() {
 		c.hub.unregister <- c
@@ -181,6 +202,7 @@ func (c *Client) readPump() {
 	}
 }
 
+// writePump sends messages from the send channel to the WebSocket connection.
 func (c *Client) writePump() {
 	defer c.conn.Close()
 

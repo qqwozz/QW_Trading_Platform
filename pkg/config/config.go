@@ -1,3 +1,5 @@
+// Package config provides application configuration management by loading
+// settings from environment variables with sensible defaults.
 package config
 
 import (
@@ -5,7 +7,9 @@ import (
 	"strconv"
 )
 
+// Config holds all application configuration values loaded from environment variables.
 type Config struct {
+	// Database connection settings
 	DBHost     string
 	DBPort     int
 	DBUser     string
@@ -15,16 +19,20 @@ type Config struct {
 	DBMaxOpen  int
 	DBMaxIdle  int
 
+	// JWT authentication settings
 	JWTSecret     string
 	JWTExpiry     int
 	RefreshExpiry int
 
-	Port       string
-	GRPCPort   string
-	Env        string
+	// Server settings
+	Port           string
+	GRPCPort       string
+	Env            string
 	AllowedOrigins string
 }
 
+// Load reads configuration from environment variables and returns a Config
+// with fallback defaults for missing values.
 func Load() *Config {
 	return &Config{
 		DBHost:     getEnv("DB_HOST", "localhost"),
@@ -40,13 +48,14 @@ func Load() *Config {
 		JWTExpiry:     getEnvInt("JWT_EXPIRY_HOURS", 1),
 		RefreshExpiry: getEnvInt("REFRESH_EXPIRY_HOURS", 168),
 
-		Port:       getEnv("PORT", "8080"),
-		GRPCPort:   getEnv("GRPC_PORT", "9090"),
-		Env:        getEnv("APP_ENV", "development"),
+		Port:           getEnv("PORT", "8080"),
+		GRPCPort:       getEnv("GRPC_PORT", "9090"),
+		Env:            getEnv("APP_ENV", "development"),
 		AllowedOrigins: getEnv("ALLOWED_ORIGINS", "*"),
 	}
 }
 
+// DatabaseDSN constructs a PostgreSQL connection string from the config fields.
 func (c *Config) DatabaseDSN() string {
 	return "host=" + c.DBHost +
 		" port=" + strconv.Itoa(c.DBPort) +
@@ -56,6 +65,7 @@ func (c *Config) DatabaseDSN() string {
 		" sslmode=" + c.DBSSLMode
 }
 
+// getEnv returns the value of an environment variable, or fallback if unset/empty.
 func getEnv(key, fallback string) string {
 	if v := os.Getenv(key); v != "" {
 		return v
@@ -63,6 +73,8 @@ func getEnv(key, fallback string) string {
 	return fallback
 }
 
+// getEnvInt parses an environment variable as an integer, returning fallback on
+// any error (missing, empty, or non-numeric value).
 func getEnvInt(key string, fallback int) int {
 	if v := os.Getenv(key); v != "" {
 		if i, err := strconv.Atoi(v); err == nil {

@@ -1,3 +1,4 @@
+// Package repository provides data access for the account domain, backed by PostgreSQL.
 package repository
 
 import (
@@ -9,14 +10,17 @@ import (
 	apperr "github.com/qw-trading/platform/pkg/errors"
 )
 
+// AccountRepository handles database operations for trading account entities.
 type AccountRepository struct {
 	db *db.Database
 }
 
+// New creates a new AccountRepository.
 func New(db *db.Database) *AccountRepository {
 	return &AccountRepository{db: db}
 }
 
+// Create inserts a new account and populates the CreatedAt and UpdatedAt fields.
 func (r *AccountRepository) Create(account *models.Account) error {
 	query := `
 		INSERT INTO accounts (id, user_id, type, balance, frozen_balance, currency, status)
@@ -29,6 +33,8 @@ func (r *AccountRepository) Create(account *models.Account) error {
 	).Scan(&account.CreatedAt, &account.UpdatedAt)
 }
 
+// GetByID retrieves an account by its UUID. Returns a NotFound error if
+// no matching account exists.
 func (r *AccountRepository) GetByID(id uuid.UUID) (*models.Account, error) {
 	account := &models.Account{}
 	query := `
@@ -46,6 +52,8 @@ func (r *AccountRepository) GetByID(id uuid.UUID) (*models.Account, error) {
 	return account, apperr.InternalErr("failed to get account", err)
 }
 
+// GetByUserAndCurrency retrieves the account for a specific user and currency.
+// Returns a NotFound error if no matching account exists.
 func (r *AccountRepository) GetByUserAndCurrency(userID uuid.UUID, currency string) (*models.Account, error) {
 	account := &models.Account{}
 	query := `
@@ -63,6 +71,7 @@ func (r *AccountRepository) GetByUserAndCurrency(userID uuid.UUID, currency stri
 	return account, apperr.InternalErr("failed to get account", err)
 }
 
+// GetByUserID retrieves all accounts for a user, ordered by creation time.
 func (r *AccountRepository) GetByUserID(userID uuid.UUID) ([]models.Account, error) {
 	query := `
 		SELECT id, user_id, type, balance, frozen_balance, currency, created_at, updated_at, status
@@ -89,6 +98,9 @@ func (r *AccountRepository) GetByUserID(userID uuid.UUID) ([]models.Account, err
 	return accounts, nil
 }
 
+// FreezeBalance atomically transfers funds from available balance to frozen balance
+// within a database transaction. Returns an error if the account is not found or
+// has insufficient funds.
 func (r *AccountRepository) FreezeBalance(accountID uuid.UUID, amount float64) error {
 	tx, err := r.db.Begin()
 	if err != nil {
@@ -96,6 +108,7 @@ func (r *AccountRepository) FreezeBalance(accountID uuid.UUID, amount float64) e
 	}
 	defer tx.Rollback()
 
+	// Lock the row for update to prevent concurrent balance modifications.
 	var balance float64
 	err = tx.QueryRow(
 		`SELECT balance FROM accounts WHERE id = $1 FOR UPDATE`,
@@ -120,6 +133,8 @@ func (r *AccountRepository) FreezeBalance(accountID uuid.UUID, amount float64) e
 	return tx.Commit()
 }
 
+// UnfreezeBalance atomically transfers funds from frozen balance back to
+// available balance within a database transaction.
 func (r *AccountRepository) UnfreezeBalance(accountID uuid.UUID, amount float64) error {
 	tx, err := r.db.Begin()
 	if err != nil {
@@ -127,6 +142,7 @@ func (r *AccountRepository) UnfreezeBalance(accountID uuid.UUID, amount float64)
 	}
 	defer tx.Rollback()
 
+	// Lock the row for update to prevent concurrent balance modifications.
 	var frozenBalance float64
 	err = tx.QueryRow(
 		`SELECT frozen_balance FROM accounts WHERE id = $1 FOR UPDATE`,
@@ -151,6 +167,7 @@ func (r *AccountRepository) UnfreezeBalance(accountID uuid.UUID, amount float64)
 	return tx.Commit()
 }
 
+// Credit adds funds to an account's available balance.
 func (r *AccountRepository) Credit(accountID uuid.UUID, amount float64) error {
 	_, err := r.db.Exec(
 		`UPDATE accounts SET balance = balance + $2, updated_at = NOW() WHERE id = $1`,
@@ -159,6 +176,7 @@ func (r *AccountRepository) Credit(accountID uuid.UUID, amount float64) error {
 	return err
 }
 
+// Debit removes funds from an account's available balance.
 func (r *AccountRepository) Debit(accountID uuid.UUID, amount float64) error {
 	_, err := r.db.Exec(
 		`UPDATE accounts SET balance = balance - $2, updated_at = NOW() WHERE id = $1`,
@@ -167,6 +185,8 @@ func (r *AccountRepository) Debit(accountID uuid.UUID, amount float64) error {
 	return err
 }
 
+// RecordBalanceHistory inserts a balance change event into the history table
+// and populates the CreatedAt field.
 func (r *AccountRepository) RecordBalanceHistory(entry *models.BalanceHistory) error {
 	query := `
 		INSERT INTO balance_history (id, user_id, account_id, currency, amount, balance_before, balance_after, type, description)

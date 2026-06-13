@@ -1,3 +1,4 @@
+// Package repository provides data access for the market data domain, backed by PostgreSQL.
 package repository
 
 import (
@@ -10,14 +11,18 @@ import (
 	apperr "github.com/qw-trading/platform/pkg/errors"
 )
 
+// MarketRepository handles database operations for market data entities.
 type MarketRepository struct {
 	db *db.Database
 }
 
+// New creates a new MarketRepository.
 func New(database *db.Database) *MarketRepository {
 	return &MarketRepository{db: database}
 }
 
+// UpsertTicker inserts or updates a market ticker. If a ticker for the symbol
+// already exists, all fields are updated.
 func (r *MarketRepository) UpsertTicker(ticker *models.MarketTicker) error {
 	query := `
 		INSERT INTO market_tickers (id, symbol, last_price, best_bid, best_ask, bid_volume, ask_volume, volume_24h, high_24h, low_24h, change_24h, change_pct_24h, updated_at)
@@ -43,6 +48,8 @@ func (r *MarketRepository) UpsertTicker(ticker *models.MarketTicker) error {
 	return err
 }
 
+// GetTicker retrieves a market ticker by symbol. Returns a NotFound error
+// if no ticker exists for the symbol.
 func (r *MarketRepository) GetTicker(symbol string) (*models.MarketTicker, error) {
 	ticker := &models.MarketTicker{}
 	query := `
@@ -64,6 +71,7 @@ func (r *MarketRepository) GetTicker(symbol string) (*models.MarketTicker, error
 	return ticker, nil
 }
 
+// GetTickers retrieves all market tickers ordered by symbol.
 func (r *MarketRepository) GetTickers() ([]models.MarketTicker, error) {
 	query := `
 		SELECT id, symbol, last_price, best_bid, best_ask, bid_volume, ask_volume,
@@ -76,7 +84,7 @@ func (r *MarketRepository) GetTickers() ([]models.MarketTicker, error) {
 	}
 	defer rows.Close()
 
-	var tickers []models.MarketTicker
+	tickers := make([]models.MarketTicker, 0)
 	for rows.Next() {
 		var t models.MarketTicker
 		if err := rows.Scan(
@@ -94,6 +102,8 @@ func (r *MarketRepository) GetTickers() ([]models.MarketTicker, error) {
 	return tickers, nil
 }
 
+// SaveOrderBookSnapshot persists a point-in-time snapshot of the order book
+// for a given symbol. Bids and asks are stored as JSON.
 func (r *MarketRepository) SaveOrderBookSnapshot(symbol string, bids, asks []models.OrderBookLevel) error {
 	bidsJSON, err := json.Marshal(bids)
 	if err != nil {
@@ -112,6 +122,8 @@ func (r *MarketRepository) SaveOrderBookSnapshot(symbol string, bids, asks []mod
 	return err
 }
 
+// GetRecentSnapshot retrieves the most recent order book snapshot for a symbol.
+// Returns a NotFound error if no snapshot exists.
 func (r *MarketRepository) GetRecentSnapshot(symbol string) (*models.OrderBookSnapshot, error) {
 	snapshot := &models.OrderBookSnapshot{}
 	query := `

@@ -1,3 +1,4 @@
+// Package handler implements HTTP handlers for history and audit trail endpoints.
 package handler
 
 import (
@@ -10,14 +11,17 @@ import (
 	"github.com/qw-trading/platform/pkg/response"
 )
 
+// Handler holds dependencies for history-related HTTP handlers.
 type Handler struct {
 	repo *repository.HistoryRepository
 }
 
+// New creates a new Handler with the given repository.
 func New(repo *repository.HistoryRepository) *Handler {
 	return &Handler{repo: repo}
 }
 
+// OrderResponse is the JSON response containing order history information.
 type OrderResponse struct {
 	ID             string   `json:"id"`
 	Symbol         string   `json:"symbol"`
@@ -32,6 +36,7 @@ type OrderResponse struct {
 	UpdatedAt      string   `json:"updated_at"`
 }
 
+// TradeResponse is the JSON response containing trade history information.
 type TradeResponse struct {
 	ID            string  `json:"id"`
 	Symbol        string  `json:"symbol"`
@@ -46,6 +51,7 @@ type TradeResponse struct {
 	ExecutedAt    string  `json:"executed_at"`
 }
 
+// BalanceHistoryResponse is the JSON response containing balance change history.
 type BalanceHistoryResponse struct {
 	ID            string  `json:"id"`
 	Currency      string  `json:"currency"`
@@ -57,6 +63,7 @@ type BalanceHistoryResponse struct {
 	CreatedAt     string  `json:"created_at"`
 }
 
+// PositionHistoryResponse is the JSON response containing position change history.
 type PositionHistoryResponse struct {
 	ID             string  `json:"id"`
 	Symbol         string  `json:"symbol"`
@@ -70,6 +77,8 @@ type PositionHistoryResponse struct {
 	CreatedAt      string  `json:"created_at"`
 }
 
+// GetOrderHistory handles GET /history/orders. Returns paginated order history
+// for the authenticated user, optionally filtered by symbol.
 func (h *Handler) GetOrderHistory(w http.ResponseWriter, r *http.Request) {
 	userID, ok := middleware.GetUserID(r)
 	if !ok {
@@ -92,14 +101,16 @@ func (h *Handler) GetOrderHistory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var result []OrderResponse
-	for _, order := range orders {
-		result = append(result, toOrderResponse(&order))
+	result := make([]OrderResponse, len(orders))
+	for i, order := range orders {
+		result[i] = toOrderResponse(&order)
 	}
 
 	response.Paginated(w, result, total, limit, offset)
 }
 
+// GetTradeHistory handles GET /history/trades. Returns paginated trade history
+// for the authenticated user, optionally filtered by symbol.
 func (h *Handler) GetTradeHistory(w http.ResponseWriter, r *http.Request) {
 	userID, ok := middleware.GetUserID(r)
 	if !ok {
@@ -122,14 +133,16 @@ func (h *Handler) GetTradeHistory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var result []TradeResponse
-	for _, trade := range trades {
-		result = append(result, toTradeResponse(&trade))
+	result := make([]TradeResponse, len(trades))
+	for i, trade := range trades {
+		result[i] = toTradeResponse(&trade)
 	}
 
 	response.Paginated(w, result, total, limit, offset)
 }
 
+// GetBalanceHistory handles GET /history/balance. Returns paginated balance
+// change history for the authenticated user, optionally filtered by currency.
 func (h *Handler) GetBalanceHistory(w http.ResponseWriter, r *http.Request) {
 	userID, ok := middleware.GetUserID(r)
 	if !ok {
@@ -152,14 +165,16 @@ func (h *Handler) GetBalanceHistory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var result []BalanceHistoryResponse
-	for _, entry := range history {
-		result = append(result, toBalanceHistoryResponse(&entry))
+	result := make([]BalanceHistoryResponse, len(history))
+	for i, entry := range history {
+		result[i] = toBalanceHistoryResponse(&entry)
 	}
 
 	response.Paginated(w, result, total, limit, offset)
 }
 
+// GetPositionHistory handles GET /history/positions. Returns paginated position
+// change history for the authenticated user, optionally filtered by symbol.
 func (h *Handler) GetPositionHistory(w http.ResponseWriter, r *http.Request) {
 	userID, ok := middleware.GetUserID(r)
 	if !ok {
@@ -182,14 +197,15 @@ func (h *Handler) GetPositionHistory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var result []PositionHistoryResponse
-	for _, entry := range history {
-		result = append(result, toPositionHistoryResponse(&entry))
+	result := make([]PositionHistoryResponse, len(history))
+	for i, entry := range history {
+		result[i] = toPositionHistoryResponse(&entry)
 	}
 
 	response.Paginated(w, result, total, limit, offset)
 }
 
+// toOrderResponse converts a domain Order into an API OrderResponse.
 func toOrderResponse(order *models.Order) OrderResponse {
 	return OrderResponse{
 		ID:             order.ID.String(),
@@ -206,6 +222,7 @@ func toOrderResponse(order *models.Order) OrderResponse {
 	}
 }
 
+// toTradeResponse converts a domain Trade into an API TradeResponse.
 func toTradeResponse(trade *models.Trade) TradeResponse {
 	return TradeResponse{
 		ID:            trade.ID.String(),
@@ -222,6 +239,7 @@ func toTradeResponse(trade *models.Trade) TradeResponse {
 	}
 }
 
+// toBalanceHistoryResponse converts a domain BalanceHistory into an API BalanceHistoryResponse.
 func toBalanceHistoryResponse(entry *models.BalanceHistory) BalanceHistoryResponse {
 	return BalanceHistoryResponse{
 		ID:            entry.ID.String(),
@@ -235,6 +253,7 @@ func toBalanceHistoryResponse(entry *models.BalanceHistory) BalanceHistoryRespon
 	}
 }
 
+// toPositionHistoryResponse converts a domain PositionHistory into an API PositionHistoryResponse.
 func toPositionHistoryResponse(entry *models.PositionHistory) PositionHistoryResponse {
 	resp := PositionHistoryResponse{
 		ID:             entry.ID.String(),

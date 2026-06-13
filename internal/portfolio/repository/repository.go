@@ -1,3 +1,4 @@
+// Package repository provides data access for the portfolio domain, backed by PostgreSQL.
 package repository
 
 import (
@@ -9,14 +10,18 @@ import (
 	apperr "github.com/qw-trading/platform/pkg/errors"
 )
 
+// PositionRepository handles database operations for position entities.
 type PositionRepository struct {
 	db *db.Database
 }
 
+// New creates a new PositionRepository.
 func New(db *db.Database) *PositionRepository {
 	return &PositionRepository{db: db}
 }
 
+// GetByUserID retrieves all non-zero positions for a user, ordered by most
+// recently updated.
 func (r *PositionRepository) GetByUserID(userID uuid.UUID) ([]models.Position, error) {
 	query := `
 		SELECT id, user_id, account_id, symbol, quantity, average_price, unrealized_pnl, updated_at
@@ -44,6 +49,8 @@ func (r *PositionRepository) GetByUserID(userID uuid.UUID) ([]models.Position, e
 	return positions, nil
 }
 
+// GetByUserAndSymbol retrieves a position by user and symbol. Returns a
+// NotFound error if no matching position exists.
 func (r *PositionRepository) GetByUserAndSymbol(userID uuid.UUID, symbol string) (*models.Position, error) {
 	pos := &models.Position{}
 	query := `
@@ -61,6 +68,8 @@ func (r *PositionRepository) GetByUserAndSymbol(userID uuid.UUID, symbol string)
 	return pos, apperr.InternalErr("failed to get position", err)
 }
 
+// Upsert inserts a new position or updates an existing one (matched on
+// user_id and symbol) with the provided values.
 func (r *PositionRepository) Upsert(pos *models.Position) error {
 	query := `
 		INSERT INTO positions (id, user_id, account_id, symbol, quantity, average_price, unrealized_pnl)
@@ -79,14 +88,18 @@ func (r *PositionRepository) Upsert(pos *models.Position) error {
 	).Scan(&pos.UpdatedAt)
 }
 
+// AccountRepository handles database operations for accounts within the
+// portfolio context.
 type AccountRepository struct {
 	db *db.Database
 }
 
+// NewAccountRepository creates a new AccountRepository for portfolio queries.
 func NewAccountRepository(db *db.Database) *AccountRepository {
 	return &AccountRepository{db: db}
 }
 
+// GetByUserID retrieves all accounts for a user, ordered by creation time.
 func (r *AccountRepository) GetByUserID(userID uuid.UUID) ([]models.Account, error) {
 	query := `
 		SELECT id, user_id, type, balance, frozen_balance, currency, created_at, updated_at, status

@@ -1,3 +1,5 @@
+// Command portfolio-service provides the portfolio and position management
+// service for the QW Trading Platform.
 package main
 
 import (
@@ -40,11 +42,11 @@ func main() {
 		w.Write([]byte(`{"status":"healthy"}`))
 	})
 
-	handler := middleware.Logger(middleware.CORS(cfg.AllowedOrigins)(mux))
+	wrapped := middleware.Logger(middleware.CORS(cfg.AllowedOrigins)(mux))
 
 	srv := &http.Server{
 		Addr:         ":" + cfg.Port,
-		Handler:      handler,
+		Handler:      wrapped,
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
 		IdleTimeout:  60 * time.Second,
@@ -57,6 +59,7 @@ func main() {
 		}
 	}()
 
+	// Wait for interrupt signal for graceful shutdown.
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit

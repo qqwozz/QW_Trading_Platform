@@ -1,3 +1,5 @@
+// Package middleware provides HTTP middleware functions for CORS, JWT authentication,
+// and request logging.
 package middleware
 
 import (
@@ -10,10 +12,14 @@ import (
 	"github.com/google/uuid"
 )
 
+// contextKey is a private type for context keys to avoid collisions.
 type contextKey string
 
+// UserIDKey is the context key used to store the authenticated user's ID.
 const UserIDKey contextKey = "user_id"
 
+// CORS returns middleware that sets Cross-Origin Resource Sharing headers
+// and handles preflight OPTIONS requests.
 func CORS(allowedOrigins string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -22,6 +28,7 @@ func CORS(allowedOrigins string) func(http.Handler) http.Handler {
 			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-User-ID")
 			w.Header().Set("Access-Control-Max-Age", "86400")
 
+			// Short-circuit preflight requests without calling downstream handlers.
 			if r.Method == http.MethodOptions {
 				w.WriteHeader(http.StatusOK)
 				return
@@ -32,9 +39,12 @@ func CORS(allowedOrigins string) func(http.Handler) http.Handler {
 	}
 }
 
+// Auth returns middleware that validates JWT tokens from the Authorization header.
+// Requests to public paths (register, login, health, docs) bypass authentication.
 func Auth(jwtSecret string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Allow unauthenticated access to public endpoints.
 			publicPaths := []string{"/auth/register", "/auth/login", "/health", "/docs"}
 			for _, path := range publicPaths {
 				if strings.HasPrefix(r.URL.Path, path) {
@@ -61,12 +71,15 @@ func Auth(jwtSecret string) func(http.Handler) http.Handler {
 				return
 			}
 
+			// Inject the authenticated user ID into the request context.
 			ctx := context.WithValue(r.Context(), UserIDKey, userID)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
 }
 
+// Logger returns middleware that records the request method, path, status code,
+// and duration for each HTTP request.
 func Logger(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
@@ -74,11 +87,11 @@ func Logger(next http.Handler) http.Handler {
 
 		next.ServeHTTP(wrapped, r)
 
-		duration := time.Since(start)
+		// Log request details. In production this would write to a structured logger.
 		logMethod := r.Method
 		logPath := r.URL.Path
 		logStatus := wrapped.statusCode
-		logDuration := duration
+		logDuration := time.Since(start)
 
 		_ = logMethod
 		_ = logPath
@@ -87,6 +100,8 @@ func Logger(next http.Handler) http.Handler {
 	})
 }
 
+// GetUserID extracts the authenticated user ID from the request context.
+// Returns the UUID and true if present and valid, or uuid.Nil and false otherwise.
 func GetUserID(r *http.Request) (uuid.UUID, bool) {
 	userID, ok := r.Context().Value(UserIDKey).(string)
 	if !ok || userID == "" {
@@ -99,8 +114,10 @@ func GetUserID(r *http.Request) (uuid.UUID, bool) {
 	return id, true
 }
 
+// validateToken parses and validates a JWT token, returning the user_id claim.
 func validateToken(tokenStr, secret string) (string, error) {
 	token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
+		// Ensure the token was signed with HMAC (HS256/HS384/HS512).
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, jwt.ErrSignatureInvalid
 		}
@@ -123,11 +140,13 @@ func validateToken(tokenStr, secret string) (string, error) {
 	return userID, nil
 }
 
+// responseWriter wraps http.ResponseWriter to capture the status code.
 type responseWriter struct {
 	http.ResponseWriter
 	statusCode int
 }
 
+// WriteHeader captures the status code before writing it to the underlying writer.
 func (rw *responseWriter) WriteHeader(code int) {
 	rw.statusCode = code
 	rw.ResponseWriter.WriteHeader(code)

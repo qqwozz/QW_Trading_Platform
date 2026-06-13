@@ -1,3 +1,4 @@
+// Package handler implements HTTP handlers for user authentication and profile endpoints.
 package handler
 
 import (
@@ -16,27 +17,32 @@ import (
 	"github.com/qw-trading/platform/pkg/response"
 )
 
+// Handler holds dependencies for user-related HTTP handlers.
 type Handler struct {
-	repo    *repository.UserRepository
+	repo      *repository.UserRepository
 	jwtSecret string
 	jwtExpiry int
 }
 
+// New creates a new Handler with the given repository and JWT configuration.
 func New(repo *repository.UserRepository, jwtSecret string, jwtExpiry int) *Handler {
 	return &Handler{repo: repo, jwtSecret: jwtSecret, jwtExpiry: jwtExpiry}
 }
 
+// RegisterRequest is the JSON request body for user registration.
 type RegisterRequest struct {
 	Email    string `json:"email"`
 	Username string `json:"username"`
 	Password string `json:"password"`
 }
 
+// LoginRequest is the JSON request body for user login.
 type LoginRequest struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
 }
 
+// UserResponse is the JSON response containing public user information.
 type UserResponse struct {
 	ID        string `json:"id"`
 	Email     string `json:"email"`
@@ -44,12 +50,15 @@ type UserResponse struct {
 	CreatedAt string `json:"created_at"`
 }
 
+// AuthResponse is the JSON response containing authentication tokens.
 type AuthResponse struct {
 	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"refresh_token"`
 	ExpiresIn    int    `json:"expires_in"`
 }
 
+// Register handles POST /auth/register. It validates input, checks for
+// duplicate emails, hashes the password, and creates the user.
 func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 	var req RegisterRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -99,6 +108,8 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// Login handles POST /auth/login. It validates credentials and returns
+// a JWT access token and refresh token on success.
 func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	var req LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -145,6 +156,8 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// GetProfile handles GET /users/me. It returns the authenticated user's
+// public profile information.
 func (h *Handler) GetProfile(w http.ResponseWriter, r *http.Request) {
 	userID, ok := middleware.GetUserID(r)
 	if !ok {
@@ -170,6 +183,7 @@ func (h *Handler) GetProfile(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// generateToken creates a signed JWT with the given user ID and expiry duration.
 func (h *Handler) generateToken(userID uuid.UUID, expiry time.Duration) (string, error) {
 	claims := jwt.MapClaims{
 		"user_id": userID.String(),

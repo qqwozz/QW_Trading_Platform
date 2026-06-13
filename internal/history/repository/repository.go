@@ -1,20 +1,26 @@
+// Package repository provides data access for the history domain, backed by PostgreSQL.
 package repository
 
 import (
+	"fmt"
+
 	"github.com/google/uuid"
 	"github.com/qw-trading/platform/internal/db"
 	"github.com/qw-trading/platform/internal/models"
 	apperr "github.com/qw-trading/platform/pkg/errors"
 )
 
+// HistoryRepository handles database operations for historical data queries.
 type HistoryRepository struct {
 	db *db.Database
 }
 
+// New creates a new HistoryRepository.
 func New(database *db.Database) *HistoryRepository {
 	return &HistoryRepository{db: database}
 }
 
+// RecordBalanceChange inserts a balance change event into the balance_history table.
 func (r *HistoryRepository) RecordBalanceChange(entry *models.BalanceHistory) error {
 	query := `
 		INSERT INTO balance_history (id, user_id, account_id, currency, amount, balance_before, balance_after, type, description)
@@ -28,6 +34,7 @@ func (r *HistoryRepository) RecordBalanceChange(entry *models.BalanceHistory) er
 	).Scan(&entry.CreatedAt)
 }
 
+// RecordPositionChange inserts a position change event into the position_history table.
 func (r *HistoryRepository) RecordPositionChange(entry *models.PositionHistory) error {
 	query := `
 		INSERT INTO position_history (id, user_id, account_id, symbol, quantity_change, quantity_before, quantity_after, avg_price_before, avg_price_after, type, trade_id)
@@ -41,6 +48,8 @@ func (r *HistoryRepository) RecordPositionChange(entry *models.PositionHistory) 
 	).Scan(&entry.CreatedAt)
 }
 
+// GetOrderHistory retrieves paginated order history for a user, optionally
+// filtered by symbol.
 func (r *HistoryRepository) GetOrderHistory(userID uuid.UUID, symbol string, limit, offset int) ([]models.Order, int, error) {
 	countQuery := `SELECT COUNT(*) FROM orders WHERE user_id = $1`
 	listQuery := `
@@ -53,8 +62,8 @@ func (r *HistoryRepository) GetOrderHistory(userID uuid.UUID, symbol string, lim
 
 	if symbol != "" {
 		argIdx++
-		countQuery += ` AND symbol = $` + itoa(argIdx)
-		listQuery += ` AND symbol = $` + itoa(argIdx)
+		countQuery += fmt.Sprintf(` AND symbol = $%d`, argIdx)
+		listQuery += fmt.Sprintf(` AND symbol = $%d`, argIdx)
 		args = append(args, symbol)
 	}
 
@@ -63,7 +72,7 @@ func (r *HistoryRepository) GetOrderHistory(userID uuid.UUID, symbol string, lim
 		return nil, 0, apperr.InternalErr("failed to count orders", err)
 	}
 
-	listQuery += ` ORDER BY created_at DESC LIMIT $` + itoa(argIdx+1) + ` OFFSET $` + itoa(argIdx+2)
+	listQuery += fmt.Sprintf(` ORDER BY created_at DESC LIMIT $%d OFFSET $%d`, argIdx+1, argIdx+2)
 	args = append(args, limit, offset)
 
 	rows, err := r.db.Query(listQuery, args...)
@@ -88,6 +97,8 @@ func (r *HistoryRepository) GetOrderHistory(userID uuid.UUID, symbol string, lim
 	return orders, total, nil
 }
 
+// GetTradeHistory retrieves paginated trade history for a user, optionally
+// filtered by symbol. Includes trades where the user was either buyer or seller.
 func (r *HistoryRepository) GetTradeHistory(userID uuid.UUID, symbol string, limit, offset int) ([]models.Trade, int, error) {
 	countQuery := `SELECT COUNT(*) FROM trades WHERE buyer_id = $1 OR seller_id = $1`
 	listQuery := `
@@ -100,8 +111,8 @@ func (r *HistoryRepository) GetTradeHistory(userID uuid.UUID, symbol string, lim
 
 	if symbol != "" {
 		argIdx++
-		countQuery += ` AND symbol = $` + itoa(argIdx)
-		listQuery += ` AND symbol = $` + itoa(argIdx)
+		countQuery += fmt.Sprintf(` AND symbol = $%d`, argIdx)
+		listQuery += fmt.Sprintf(` AND symbol = $%d`, argIdx)
 		args = append(args, symbol)
 	}
 
@@ -110,7 +121,7 @@ func (r *HistoryRepository) GetTradeHistory(userID uuid.UUID, symbol string, lim
 		return nil, 0, apperr.InternalErr("failed to count trades", err)
 	}
 
-	listQuery += ` ORDER BY executed_at DESC LIMIT $` + itoa(argIdx+1) + ` OFFSET $` + itoa(argIdx+2)
+	listQuery += fmt.Sprintf(` ORDER BY executed_at DESC LIMIT $%d OFFSET $%d`, argIdx+1, argIdx+2)
 	args = append(args, limit, offset)
 
 	rows, err := r.db.Query(listQuery, args...)
@@ -134,6 +145,8 @@ func (r *HistoryRepository) GetTradeHistory(userID uuid.UUID, symbol string, lim
 	return trades, total, nil
 }
 
+// GetBalanceHistory retrieves paginated balance change history for a user,
+// optionally filtered by currency.
 func (r *HistoryRepository) GetBalanceHistory(userID uuid.UUID, currency string, limit, offset int) ([]models.BalanceHistory, int, error) {
 	countQuery := `SELECT COUNT(*) FROM balance_history WHERE user_id = $1`
 	listQuery := `
@@ -145,8 +158,8 @@ func (r *HistoryRepository) GetBalanceHistory(userID uuid.UUID, currency string,
 
 	if currency != "" {
 		argIdx++
-		countQuery += ` AND currency = $` + itoa(argIdx)
-		listQuery += ` AND currency = $` + itoa(argIdx)
+		countQuery += fmt.Sprintf(` AND currency = $%d`, argIdx)
+		listQuery += fmt.Sprintf(` AND currency = $%d`, argIdx)
 		args = append(args, currency)
 	}
 
@@ -155,7 +168,7 @@ func (r *HistoryRepository) GetBalanceHistory(userID uuid.UUID, currency string,
 		return nil, 0, apperr.InternalErr("failed to count balance history", err)
 	}
 
-	listQuery += ` ORDER BY created_at DESC LIMIT $` + itoa(argIdx+1) + ` OFFSET $` + itoa(argIdx+2)
+	listQuery += fmt.Sprintf(` ORDER BY created_at DESC LIMIT $%d OFFSET $%d`, argIdx+1, argIdx+2)
 	args = append(args, limit, offset)
 
 	rows, err := r.db.Query(listQuery, args...)
@@ -179,6 +192,8 @@ func (r *HistoryRepository) GetBalanceHistory(userID uuid.UUID, currency string,
 	return history, total, nil
 }
 
+// GetPositionHistory retrieves paginated position change history for a user,
+// optionally filtered by symbol.
 func (r *HistoryRepository) GetPositionHistory(userID uuid.UUID, symbol string, limit, offset int) ([]models.PositionHistory, int, error) {
 	countQuery := `SELECT COUNT(*) FROM position_history WHERE user_id = $1`
 	listQuery := `
@@ -191,8 +206,8 @@ func (r *HistoryRepository) GetPositionHistory(userID uuid.UUID, symbol string, 
 
 	if symbol != "" {
 		argIdx++
-		countQuery += ` AND symbol = $` + itoa(argIdx)
-		listQuery += ` AND symbol = $` + itoa(argIdx)
+		countQuery += fmt.Sprintf(` AND symbol = $%d`, argIdx)
+		listQuery += fmt.Sprintf(` AND symbol = $%d`, argIdx)
 		args = append(args, symbol)
 	}
 
@@ -201,7 +216,7 @@ func (r *HistoryRepository) GetPositionHistory(userID uuid.UUID, symbol string, 
 		return nil, 0, apperr.InternalErr("failed to count position history", err)
 	}
 
-	listQuery += ` ORDER BY created_at DESC LIMIT $` + itoa(argIdx+1) + ` OFFSET $` + itoa(argIdx+2)
+	listQuery += fmt.Sprintf(` ORDER BY created_at DESC LIMIT $%d OFFSET $%d`, argIdx+1, argIdx+2)
 	args = append(args, limit, offset)
 
 	rows, err := r.db.Query(listQuery, args...)
@@ -226,10 +241,8 @@ func (r *HistoryRepository) GetPositionHistory(userID uuid.UUID, symbol string, 
 	return history, total, nil
 }
 
+// RecordBalanceHistory is an alias for RecordBalanceChange, provided for
+// API compatibility.
 func (r *HistoryRepository) RecordBalanceHistory(entry *models.BalanceHistory) error {
 	return r.RecordBalanceChange(entry)
-}
-
-func itoa(i int) string {
-	return string(rune('0' + i))
 }

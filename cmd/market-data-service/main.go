@@ -1,3 +1,5 @@
+// Command market-data-service provides real-time market data including tickers,
+// order books, and WebSocket streaming for the QW Trading Platform.
 package main
 
 import (
@@ -60,6 +62,7 @@ func main() {
 		}
 	}()
 
+	// Wait for interrupt signal for graceful shutdown.
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit

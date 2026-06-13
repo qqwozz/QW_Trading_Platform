@@ -1,7 +1,10 @@
+// Package repository provides data access for the order and trade domains,
+// backed by PostgreSQL.
 package repository
 
 import (
 	"database/sql"
+	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/qw-trading/platform/internal/db"
@@ -9,14 +12,17 @@ import (
 	apperr "github.com/qw-trading/platform/pkg/errors"
 )
 
+// OrderRepository handles database operations for order entities.
 type OrderRepository struct {
 	db *db.Database
 }
 
+// New creates a new OrderRepository.
 func New(db *db.Database) *OrderRepository {
 	return &OrderRepository{db: db}
 }
 
+// Create inserts a new order and populates the CreatedAt and UpdatedAt fields.
 func (r *OrderRepository) Create(order *models.Order) error {
 	query := `
 		INSERT INTO orders (id, user_id, account_id, symbol, side, type, price, quantity, filled_quantity, status, time_in_force)
@@ -30,6 +36,8 @@ func (r *OrderRepository) Create(order *models.Order) error {
 	).Scan(&order.CreatedAt, &order.UpdatedAt)
 }
 
+// GetByID retrieves an order by its UUID. Returns a NotFound error if no
+// matching order exists.
 func (r *OrderRepository) GetByID(id uuid.UUID) (*models.Order, error) {
 	order := &models.Order{}
 	query := `
@@ -49,6 +57,8 @@ func (r *OrderRepository) GetByID(id uuid.UUID) (*models.Order, error) {
 	return order, apperr.InternalErr("failed to get order", err)
 }
 
+// UpdateStatus updates the status and filled quantity of an order.
+// Returns a NotFound error if the order does not exist.
 func (r *OrderRepository) UpdateStatus(orderID uuid.UUID, status models.OrderStatus, filledQuantity float64) error {
 	query := `
 		UPDATE orders SET status = $2, filled_quantity = $3, updated_at = NOW()
@@ -65,6 +75,7 @@ func (r *OrderRepository) UpdateStatus(orderID uuid.UUID, status models.OrderSta
 	return nil
 }
 
+// ListFilter defines the query parameters for listing orders.
 type ListFilter struct {
 	UserID uuid.UUID
 	Symbol string
@@ -73,6 +84,8 @@ type ListFilter struct {
 	Offset int
 }
 
+// List retrieves orders matching the filter criteria, returning the orders
+// and the total count for pagination.
 func (r *OrderRepository) List(filter ListFilter) ([]models.Order, int, error) {
 	countQuery := `SELECT COUNT(*) FROM orders WHERE user_id = $1`
 	listQuery := `
@@ -85,15 +98,15 @@ func (r *OrderRepository) List(filter ListFilter) ([]models.Order, int, error) {
 
 	if filter.Symbol != "" {
 		argIdx++
-		countQuery += ` AND symbol = $` + itoa(argIdx)
-		listQuery += ` AND symbol = $` + itoa(argIdx)
+		countQuery += fmt.Sprintf(` AND symbol = $%d`, argIdx)
+		listQuery += fmt.Sprintf(` AND symbol = $%d`, argIdx)
 		args = append(args, filter.Symbol)
 	}
 
 	if filter.Status != "" {
 		argIdx++
-		countQuery += ` AND status = $` + itoa(argIdx)
-		listQuery += ` AND status = $` + itoa(argIdx)
+		countQuery += fmt.Sprintf(` AND status = $%d`, argIdx)
+		listQuery += fmt.Sprintf(` AND status = $%d`, argIdx)
 		args = append(args, filter.Status)
 	}
 
@@ -102,7 +115,7 @@ func (r *OrderRepository) List(filter ListFilter) ([]models.Order, int, error) {
 		return nil, 0, apperr.InternalErr("failed to count orders", err)
 	}
 
-	listQuery += ` ORDER BY created_at DESC LIMIT $` + itoa(argIdx+1) + ` OFFSET $` + itoa(argIdx+2)
+	listQuery += fmt.Sprintf(` ORDER BY created_at DESC LIMIT $%d OFFSET $%d`, argIdx+1, argIdx+2)
 	args = append(args, filter.Limit, filter.Offset)
 
 	rows, err := r.db.Query(listQuery, args...)
@@ -127,14 +140,17 @@ func (r *OrderRepository) List(filter ListFilter) ([]models.Order, int, error) {
 	return orders, total, nil
 }
 
+// TradeRepository handles database operations for trade entities.
 type TradeRepository struct {
 	db *db.Database
 }
 
+// NewTradeRepository creates a new TradeRepository.
 func NewTradeRepository(db *db.Database) *TradeRepository {
 	return &TradeRepository{db: db}
 }
 
+// Create inserts a new trade and populates the ExecutedAt field.
 func (r *TradeRepository) Create(trade *models.Trade) error {
 	query := `
 		INSERT INTO trades (id, symbol, buyer_order_id, seller_order_id, buyer_id, seller_id, price, quantity, buyer_fee, seller_fee)
@@ -146,8 +162,4 @@ func (r *TradeRepository) Create(trade *models.Trade) error {
 		trade.BuyerID, trade.SellerID, trade.Price, trade.Quantity,
 		trade.BuyerFee, trade.SellerFee,
 	).Scan(&trade.ExecutedAt)
-}
-
-func itoa(i int) string {
-	return string(rune('0' + i))
 }

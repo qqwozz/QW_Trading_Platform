@@ -1,3 +1,4 @@
+// Package handler implements HTTP handlers for portfolio and position endpoints.
 package handler
 
 import (
@@ -13,15 +14,18 @@ import (
 	"github.com/qw-trading/platform/pkg/response"
 )
 
+// Handler holds dependencies for portfolio-related HTTP handlers.
 type Handler struct {
 	posRepo *repository.PositionRepository
 	accRepo *repository.AccountRepository
 }
 
+// New creates a new Handler with the given repositories.
 func New(posRepo *repository.PositionRepository, accRepo *repository.AccountRepository) *Handler {
 	return &Handler{posRepo: posRepo, accRepo: accRepo}
 }
 
+// PositionResponse is the JSON response containing position information.
 type PositionResponse struct {
 	ID            string  `json:"id"`
 	Symbol        string  `json:"symbol"`
@@ -34,6 +38,7 @@ type PositionResponse struct {
 	UpdatedAt     string  `json:"updated_at"`
 }
 
+// PortfolioSummaryResponse is the JSON response containing aggregated portfolio data.
 type PortfolioSummaryResponse struct {
 	TotalBalance       float64            `json:"total_balance"`
 	TotalFrozen        float64            `json:"total_frozen"`
@@ -44,6 +49,7 @@ type PortfolioSummaryResponse struct {
 	Positions          []PositionResponse `json:"positions"`
 }
 
+// BalanceResponse is the JSON response containing account balance information.
 type BalanceResponse struct {
 	Currency  string  `json:"currency"`
 	Balance   float64 `json:"balance"`
@@ -51,6 +57,8 @@ type BalanceResponse struct {
 	Available float64 `json:"available"`
 }
 
+// GetPortfolio handles GET /portfolio. Returns an aggregated view of the
+// user's balances and positions.
 func (h *Handler) GetPortfolio(w http.ResponseWriter, r *http.Request) {
 	userID, ok := middleware.GetUserID(r)
 	if !ok {
@@ -66,6 +74,7 @@ func (h *Handler) GetPortfolio(w http.ResponseWriter, r *http.Request) {
 
 	var totalBalance, totalFrozen float64
 	for _, acc := range accounts {
+		// Only aggregate USDT-denominated balances for the summary.
 		if acc.Currency == "USDT" {
 			totalBalance += acc.Balance
 			totalFrozen += acc.FrozenBalance
@@ -79,7 +88,7 @@ func (h *Handler) GetPortfolio(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var totalMarketValue, totalUnrealizedPnL float64
-	var posResponses []PositionResponse
+	posResponses := make([]PositionResponse, 0, len(positions))
 
 	for _, pos := range positions {
 		resp := toPositionResponse(&pos)
@@ -99,6 +108,8 @@ func (h *Handler) GetPortfolio(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// ListPositions handles GET /positions. Returns all open positions for the
+// authenticated user.
 func (h *Handler) ListPositions(w http.ResponseWriter, r *http.Request) {
 	userID, ok := middleware.GetUserID(r)
 	if !ok {
@@ -112,14 +123,16 @@ func (h *Handler) ListPositions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var result []PositionResponse
-	for _, pos := range positions {
-		result = append(result, toPositionResponse(&pos))
+	result := make([]PositionResponse, len(positions))
+	for i, pos := range positions {
+		result[i] = toPositionResponse(&pos)
 	}
 
 	response.Success(w, map[string]interface{}{"positions": result})
 }
 
+// GetBalances handles GET /balances. Returns all account balances for the
+// authenticated user.
 func (h *Handler) GetBalances(w http.ResponseWriter, r *http.Request) {
 	userID, ok := middleware.GetUserID(r)
 	if !ok {
@@ -133,19 +146,20 @@ func (h *Handler) GetBalances(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var result []BalanceResponse
-	for _, acc := range accounts {
-		result = append(result, BalanceResponse{
+	result := make([]BalanceResponse, len(accounts))
+	for i, acc := range accounts {
+		result[i] = BalanceResponse{
 			Currency:  acc.Currency,
 			Balance:   acc.Balance,
 			Frozen:    acc.FrozenBalance,
 			Available: acc.Balance - acc.FrozenBalance,
-		})
+		}
 	}
 
 	response.Success(w, map[string]interface{}{"balances": result})
 }
 
+// UpdatePositionRequest is the JSON request body for updating a position.
 type UpdatePositionRequest struct {
 	Symbol   string  `json:"symbol"`
 	Quantity float64 `json:"quantity"`
@@ -153,6 +167,8 @@ type UpdatePositionRequest struct {
 	Side     string  `json:"side"`
 }
 
+// UpdatePosition handles POST /positions. It creates or updates a position
+// based on the provided trade details.
 func (h *Handler) UpdatePosition(w http.ResponseWriter, r *http.Request) {
 	userID, ok := middleware.GetUserID(r)
 	if !ok {
@@ -179,11 +195,12 @@ func (h *Handler) UpdatePosition(w http.ResponseWriter, r *http.Request) {
 	pos, err := h.posRepo.GetByUserAndSymbol(userID, req.Symbol)
 	if err != nil {
 		if appErr, ok := err.(*errors.AppError); ok && appErr.Code == http.StatusNotFound {
+			// Create a new position for this symbol.
 			pos = &models.Position{
-				ID:        uuid.New(),
-				UserID:    userID,
-				Symbol:    req.Symbol,
-				Quantity:  req.Quantity,
+				ID:           uuid.New(),
+				UserID:       userID,
+				Symbol:       req.Symbol,
+				Quantity:     req.Quantity,
 				AveragePrice: req.Price,
 			}
 		} else {
@@ -191,12 +208,15 @@ func (h *Handler) UpdatePosition(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else {
+		// Update existing position based on trade side.
 		if req.Side == "BUY" {
+			// Recalculate weighted average price on buy.
 			totalCost := (pos.Quantity * pos.AveragePrice) + (req.Quantity * req.Price)
 			pos.Quantity += req.Quantity
 			pos.AveragePrice = totalCost / pos.Quantity
 		} else {
 			pos.Quantity -= req.Quantity
+			// Zero out the position if fully sold.
 			if pos.Quantity <= 0 {
 				pos.Quantity = 0
 				pos.AveragePrice = 0
@@ -212,6 +232,7 @@ func (h *Handler) UpdatePosition(w http.ResponseWriter, r *http.Request) {
 	response.Success(w, toPositionResponse(pos))
 }
 
+// toPositionResponse converts a domain Position into an API PositionResponse.
 func toPositionResponse(pos *models.Position) PositionResponse {
 	costBasis := pos.Quantity * pos.AveragePrice
 	marketValue := costBasis
