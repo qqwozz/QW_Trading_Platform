@@ -166,3 +166,16 @@ func (r *AccountRepository) Debit(accountID uuid.UUID, amount float64) error {
 	)
 	return err
 }
+
+func (r *AccountRepository) RecordBalanceHistory(entry *models.BalanceHistory) error {
+	query := `
+		INSERT INTO balance_history (id, user_id, account_id, currency, amount, balance_before, balance_after, type, description)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		RETURNING created_at`
+
+	return r.db.QueryRow(query,
+		entry.ID, entry.UserID, entry.AccountID, entry.Currency,
+		entry.Amount, entry.BalanceBefore, entry.BalanceAfter,
+		entry.Type, entry.Description,
+	).Scan(&entry.CreatedAt)
+}

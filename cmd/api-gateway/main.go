@@ -31,6 +31,7 @@ func NewGateway(cfg *config.Config) *Gateway {
 			"/portfolio":"http://localhost:8084",
 			"/balances": "http://localhost:8084",
 			"/market":   "http://localhost:8085",
+			"/history":  "http://localhost:8086",
 		},
 		client: &http.Client{Timeout: 30 * time.Second},
 	}

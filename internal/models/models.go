@@ -116,6 +116,7 @@ type Order struct {
 	TimeInForce    TimeInForce  `json:"time_in_force" db:"time_in_force"`
 	CreatedAt      time.Time    `json:"created_at" db:"created_at"`
 	UpdatedAt      time.Time    `json:"updated_at" db:"updated_at"`
+	ExpiredAt      *time.Time   `json:"expired_at,omitempty" db:"expired_at"`
 }
 
 func (o *Order) RemainingQuantity() float64 {
@@ -145,4 +146,103 @@ type Position struct {
 	AveragePrice  float64   `json:"average_price" db:"average_price"`
 	UnrealizedPnL float64   `json:"unrealized_pnl" db:"unrealized_pnl"`
 	UpdatedAt     time.Time `json:"updated_at" db:"updated_at"`
+}
+
+type MarketTicker struct {
+	ID           uuid.UUID `json:"id" db:"id"`
+	Symbol       string    `json:"symbol" db:"symbol"`
+	LastPrice    float64   `json:"last_price" db:"last_price"`
+	BestBid      float64   `json:"best_bid" db:"best_bid"`
+	BestAsk      float64   `json:"best_ask" db:"best_ask"`
+	BidVolume    float64   `json:"bid_volume" db:"bid_volume"`
+	AskVolume    float64   `json:"ask_volume" db:"ask_volume"`
+	Volume24h    float64   `json:"volume_24h" db:"volume_24h"`
+	High24h      float64   `json:"high_24h" db:"high_24h"`
+	Low24h       float64   `json:"low_24h" db:"low_24h"`
+	Change24h    float64   `json:"change_24h" db:"change_24h"`
+	ChangePct24h float64   `json:"change_pct_24h" db:"change_pct_24h"`
+	UpdatedAt    time.Time `json:"updated_at" db:"updated_at"`
+}
+
+type OrderBookLevel struct {
+	Price    float64 `json:"price"`
+	Quantity float64 `json:"quantity"`
+}
+
+type OrderBookSnapshot struct {
+	ID        uuid.UUID       `json:"id" db:"id"`
+	Symbol    string          `json:"symbol" db:"symbol"`
+	Bids      []OrderBookLevel `json:"bids"`
+	Asks      []OrderBookLevel `json:"asks"`
+	CreatedAt time.Time       `json:"created_at" db:"created_at"`
+}
+
+type TickerResponse struct {
+	ID           string  `json:"id"`
+	Symbol       string  `json:"symbol"`
+	LastPrice    float64 `json:"last_price"`
+	BestBid      float64 `json:"best_bid"`
+	BestAsk      float64 `json:"best_ask"`
+	BidVolume    float64 `json:"bid_volume"`
+	AskVolume    float64 `json:"ask_volume"`
+	Volume24h    float64 `json:"volume_24h"`
+	High24h      float64 `json:"high_24h"`
+	Low24h       float64 `json:"low_24h"`
+	Change24h    float64 `json:"change_24h"`
+	ChangePct24h float64 `json:"change_pct_24h"`
+	UpdatedAt    string  `json:"updated_at"`
+}
+
+type OrderBookResponse struct {
+	Symbol string          `json:"symbol"`
+	Bids   []OrderBookLevel `json:"bids"`
+	Asks   []OrderBookLevel `json:"asks"`
+	Depth  int             `json:"depth"`
+}
+
+type BalanceHistoryType string
+
+const (
+	BalanceHistoryTypeDeposit    BalanceHistoryType = "DEPOSIT"
+	BalanceHistoryTypeWithdrawal BalanceHistoryType = "WITHDRAWAL"
+	BalanceHistoryTypeCredit     BalanceHistoryType = "CREDIT"
+	BalanceHistoryTypeDebit      BalanceHistoryType = "DEBIT"
+	BalanceHistoryTypeFee        BalanceHistoryType = "FEE"
+)
+
+type BalanceHistory struct {
+	ID           uuid.UUID         `json:"id" db:"id"`
+	UserID       uuid.UUID         `json:"user_id" db:"user_id"`
+	AccountID    uuid.UUID         `json:"account_id" db:"account_id"`
+	Currency     string            `json:"currency" db:"currency"`
+	Amount       float64           `json:"amount" db:"amount"`
+	BalanceBefore float64          `json:"balance_before" db:"balance_before"`
+	BalanceAfter  float64          `json:"balance_after" db:"balance_after"`
+	Type         BalanceHistoryType `json:"type" db:"type"`
+	Description  string            `json:"description" db:"description"`
+	CreatedAt    time.Time         `json:"created_at" db:"created_at"`
+}
+
+type PositionHistoryType string
+
+const (
+	PositionHistoryTypeOpen     PositionHistoryType = "OPEN"
+	PositionHistoryTypeClose    PositionHistoryType = "CLOSE"
+	PositionHistoryTypeIncrease PositionHistoryType = "INCREASE"
+	PositionHistoryTypeDecrease PositionHistoryType = "DECREASE"
+)
+
+type PositionHistory struct {
+	ID              uuid.UUID            `json:"id" db:"id"`
+	UserID          uuid.UUID            `json:"user_id" db:"user_id"`
+	AccountID       uuid.UUID            `json:"account_id" db:"account_id"`
+	Symbol          string               `json:"symbol" db:"symbol"`
+	QuantityChange  float64              `json:"quantity_change" db:"quantity_change"`
+	QuantityBefore  float64              `json:"quantity_before" db:"quantity_before"`
+	QuantityAfter   float64              `json:"quantity_after" db:"quantity_after"`
+	AvgPriceBefore  float64              `json:"avg_price_before" db:"avg_price_before"`
+	AvgPriceAfter   float64              `json:"avg_price_after" db:"avg_price_after"`
+	Type            PositionHistoryType  `json:"type" db:"type"`
+	TradeID         *uuid.UUID           `json:"trade_id,omitempty" db:"trade_id"`
+	CreatedAt       time.Time            `json:"created_at" db:"created_at"`
 }

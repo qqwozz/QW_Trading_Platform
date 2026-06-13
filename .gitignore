@@ -43,3 +43,5 @@ Thumbs.db
 # Build
 /build/
 /dist/
+/market-data-service
+/history-service
