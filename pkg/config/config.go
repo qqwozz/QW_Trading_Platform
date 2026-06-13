@@ -1,0 +1,73 @@
+package config
+
+import (
+	"os"
+	"strconv"
+)
+
+type Config struct {
+	DBHost     string
+	DBPort     int
+	DBUser     string
+	DBPassword string
+	DBName     string
+	DBSSLMode  string
+	DBMaxOpen  int
+	DBMaxIdle  int
+
+	JWTSecret     string
+	JWTExpiry     int
+	RefreshExpiry int
+
+	Port       string
+	GRPCPort   string
+	Env        string
+	AllowedOrigins string
+}
+
+func Load() *Config {
+	return &Config{
+		DBHost:     getEnv("DB_HOST", "localhost"),
+		DBPort:     getEnvInt("DB_PORT", 5432),
+		DBUser:     getEnv("DB_USER", "postgres"),
+		DBPassword: getEnv("DB_PASSWORD", "postgres"),
+		DBName:     getEnv("DB_NAME", "qw_trading"),
+		DBSSLMode:  getEnv("DB_SSLMODE", "disable"),
+		DBMaxOpen:  getEnvInt("DB_MAX_OPEN_CONNS", 25),
+		DBMaxIdle:  getEnvInt("DB_MAX_IDLE_CONNS", 5),
+
+		JWTSecret:     getEnv("JWT_SECRET", ""),
+		JWTExpiry:     getEnvInt("JWT_EXPIRY_HOURS", 1),
+		RefreshExpiry: getEnvInt("REFRESH_EXPIRY_HOURS", 168),
+
+		Port:       getEnv("PORT", "8080"),
+		GRPCPort:   getEnv("GRPC_PORT", "9090"),
+		Env:        getEnv("APP_ENV", "development"),
+		AllowedOrigins: getEnv("ALLOWED_ORIGINS", "*"),
+	}
+}
+
+func (c *Config) DatabaseDSN() string {
+	return "host=" + c.DBHost +
+		" port=" + strconv.Itoa(c.DBPort) +
+		" user=" + c.DBUser +
+		" password=" + c.DBPassword +
+		" dbname=" + c.DBName +
+		" sslmode=" + c.DBSSLMode
+}
+
+func getEnv(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return fallback
+}
+
+func getEnvInt(key string, fallback int) int {
+	if v := os.Getenv(key); v != "" {
+		if i, err := strconv.Atoi(v); err == nil {
+			return i
+		}
+	}
+	return fallback
+}

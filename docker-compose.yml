@@ -1,0 +1,136 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: qw_postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: qw_trading
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./deploy/migrations/001_init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: qw_redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  user-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.go
+      args:
+        SERVICE: cmd/user-service
+    container_name: qw_user_service
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: qw_trading
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      PORT: 8081
+    ports:
+      - "8081:8081"
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  account-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.go
+      args:
+        SERVICE: cmd/account-service
+    container_name: qw_account_service
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: qw_trading
+      PORT: 8082
+    ports:
+      - "8082:8082"
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  order-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.go
+      args:
+        SERVICE: cmd/order-service
+    container_name: qw_order_service
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: qw_trading
+      PORT: 8083
+    ports:
+      - "8083:8083"
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  portfolio-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.go
+      args:
+        SERVICE: cmd/portfolio-service
+    container_name: qw_portfolio_service
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: qw_trading
+      PORT: 8084
+    ports:
+      - "8084:8084"
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  matching-engine:
+    build:
+      context: .
+      dockerfile: Dockerfile.cpp
+    container_name: qw_matching_engine
+    ports:
+      - "50051:50051"
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile.go
+      args:
+        SERVICE: cmd/api-gateway
+    container_name: qw_api_gateway
+    environment:
+      PORT: 8080
+    ports:
+      - "8080:8080"
+    depends_on:
+      - user-service
+      - account-service
+      - order-service
+      - portfolio-service
+
+volumes:
+  pgdata:
