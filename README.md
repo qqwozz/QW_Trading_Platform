@@ -1,1 +1,0 @@
-# QW_Trading_Platform
