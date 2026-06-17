@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 	"unicode/utf8"
 
@@ -16,6 +17,16 @@ import (
 	"github.com/qw-trading/platform/pkg/errors"
 	"github.com/qw-trading/platform/pkg/middleware"
 	"github.com/qw-trading/platform/pkg/response"
+)
+
+var (
+	failedLogins = make(map[string]int)
+	failedMu     sync.Mutex
+)
+
+const (
+	maxFailedLogins = 5
+	lockoutDuration = 15 * time.Minute
 )
 
 type Handler struct {
@@ -117,6 +128,14 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	failedMu.Lock()
+	if failedLogins[req.Email] >= maxFailedLogins {
+		failedMu.Unlock()
+		response.TooManyRequests(w, "account temporarily locked, try again later")
+		return
+	}
+	failedMu.Unlock()
+
 	user, err := h.repo.GetByEmail(r.Context(), req.Email)
 	if err != nil {
 		if appErr, ok := err.(*errors.AppError); ok && appErr.Code == http.StatusNotFound {
@@ -128,9 +147,16 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)); err != nil {
+		failedMu.Lock()
+		failedLogins[req.Email]++
+		failedMu.Unlock()
 		response.Unauthorized(w, "invalid credentials")
 		return
 	}
+
+	failedMu.Lock()
+	delete(failedLogins, req.Email)
+	failedMu.Unlock()
 
 	accessToken, err := h.generateToken(user.ID, time.Duration(h.jwtExpiry)*time.Hour)
 	if err != nil {

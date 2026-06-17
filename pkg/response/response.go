@@ -73,6 +73,10 @@ func InternalError(w http.ResponseWriter, message string) {
 	Error(w, http.StatusInternalServerError, message)
 }
 
+func TooManyRequests(w http.ResponseWriter, message string) {
+	Error(w, http.StatusTooManyRequests, message)
+}
+
 // Paginated writes a 200 OK response with data and pagination metadata.
 func Paginated(w http.ResponseWriter, data interface{}, total, limit, offset int) {
 	JSON(w, http.StatusOK, Response{
