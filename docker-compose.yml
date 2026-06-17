@@ -132,5 +132,15 @@ services:
       - order-service
       - portfolio-service
 
+  frontend:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile-frontend
+    container_name: qw_frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - api-gateway
+
 volumes:
   pgdata:

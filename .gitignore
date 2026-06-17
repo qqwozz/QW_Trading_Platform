@@ -45,3 +45,7 @@ Thumbs.db
 /dist/
 /market-data-service
 /history-service
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
