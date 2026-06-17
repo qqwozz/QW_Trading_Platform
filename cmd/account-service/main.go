@@ -30,6 +30,7 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /accounts", h.ListAccounts)
 	mux.HandleFunc("POST /accounts/deposit", h.Deposit)
+	mux.HandleFunc("POST /accounts/withdraw", h.Withdraw)
 	mux.HandleFunc("GET /health", db.HealthHandler(database, "account-service"))
 
 	logger := applog.New("account-service")

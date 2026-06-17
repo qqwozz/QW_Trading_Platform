@@ -107,3 +107,62 @@ func TestDeposit_AccountNotFound(t *testing.T) {
 		t.Errorf("status = %d, want %d", w.Code, http.StatusNotFound)
 	}
 }
+
+func TestWithdraw_Success(t *testing.T) {
+	userID := uuid.New()
+	accountID := uuid.New()
+	repo := &mockAccountRepo{
+		getByUserAndCurrencyFn: func(uid uuid.UUID, currency string) (*models.Account, error) {
+			return &models.Account{ID: accountID, UserID: uid, Balance: 1000, FrozenBalance: 0, Currency: "USDT"}, nil
+		},
+		debitFn: func(id uuid.UUID, amount float64) error { return nil },
+	}
+	h := New(repo)
+
+	body, _ := json.Marshal(WithdrawRequest{Currency: "USDT", Amount: 200})
+	req := httptest.NewRequest("POST", "/accounts/withdraw", bytes.NewReader(body))
+	ctx := context.WithValue(req.Context(), middleware.UserIDKey, userID.String())
+	req = req.WithContext(ctx)
+	w := httptest.NewRecorder()
+	h.Withdraw(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("status = %d, want %d", w.Code, http.StatusOK)
+	}
+}
+
+func TestWithdraw_InsufficientBalance(t *testing.T) {
+	repo := &mockAccountRepo{
+		getByUserAndCurrencyFn: func(uid uuid.UUID, currency string) (*models.Account, error) {
+			return &models.Account{Balance: 100, FrozenBalance: 0, Currency: "USDT"}, nil
+		},
+	}
+	h := New(repo)
+
+	body, _ := json.Marshal(WithdrawRequest{Currency: "USDT", Amount: 500})
+	req := httptest.NewRequest("POST", "/accounts/withdraw", bytes.NewReader(body))
+	ctx := context.WithValue(req.Context(), middleware.UserIDKey, uuid.New().String())
+	req = req.WithContext(ctx)
+	w := httptest.NewRecorder()
+	h.Withdraw(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want %d (insufficient balance)", w.Code, http.StatusBadRequest)
+	}
+}
+
+func TestWithdraw_InvalidAmount(t *testing.T) {
+	repo := &mockAccountRepo{}
+	h := New(repo)
+
+	body, _ := json.Marshal(WithdrawRequest{Currency: "USDT", Amount: -10})
+	req := httptest.NewRequest("POST", "/accounts/withdraw", bytes.NewReader(body))
+	ctx := context.WithValue(req.Context(), middleware.UserIDKey, uuid.New().String())
+	req = req.WithContext(ctx)
+	w := httptest.NewRecorder()
+	h.Withdraw(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want %d", w.Code, http.StatusBadRequest)
+	}
+}

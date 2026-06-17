@@ -37,6 +37,16 @@ type DepositResponse struct {
 	NewBalance float64 `json:"new_balance"`
 }
 
+type WithdrawRequest struct {
+	Currency string  `json:"currency"`
+	Amount   float64 `json:"amount"`
+}
+
+type WithdrawResponse struct {
+	AccountID  string  `json:"account_id"`
+	NewBalance float64 `json:"new_balance"`
+}
+
 func (h *Handler) ListAccounts(w http.ResponseWriter, r *http.Request) {
 	userID, ok := middleware.GetUserID(r)
 	if !ok {
@@ -100,5 +110,47 @@ func (h *Handler) Deposit(w http.ResponseWriter, r *http.Request) {
 	response.Success(w, DepositResponse{
 		AccountID:  account.ID.String(),
 		NewBalance: account.Balance + req.Amount,
+	})
+}
+
+func (h *Handler) Withdraw(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middleware.GetUserID(r)
+	if !ok {
+		response.Unauthorized(w, "unauthorized")
+		return
+	}
+
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+
+	var req WithdrawRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.BadRequest(w, "invalid request body")
+		return
+	}
+
+	if req.Currency == "" || req.Amount <= 0 || req.Amount > 10_000_000 {
+		response.BadRequest(w, "currency and amount (0, 10000000] are required")
+		return
+	}
+
+	account, err := h.repo.GetByUserAndCurrency(r.Context(), userID, req.Currency)
+	if err != nil {
+		response.NotFound(w, "account not found")
+		return
+	}
+
+	if account.Balance-account.FrozenBalance < req.Amount {
+		response.BadRequest(w, "insufficient available balance")
+		return
+	}
+
+	if err := h.repo.Debit(r.Context(), account.ID, req.Amount); err != nil {
+		response.InternalError(w, "failed to withdraw")
+		return
+	}
+
+	response.Success(w, WithdrawResponse{
+		AccountID:  account.ID.String(),
+		NewBalance: account.Balance - req.Amount,
 	})
 }
