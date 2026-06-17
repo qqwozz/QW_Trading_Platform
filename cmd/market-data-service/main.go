@@ -32,10 +32,10 @@ func main() {
 	hdl := handler.New(repo, h)
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /market/tickers", hdl.ListTickers)
-	mux.HandleFunc("GET /market/tickers/{symbol}", hdl.GetTicker)
-	mux.HandleFunc("GET /market/orderbook/{symbol}", hdl.GetOrderBook)
-	mux.HandleFunc("GET /market/ws", hdl.HandleWebSocket)
+	mux.HandleFunc("GET /v1/market/tickers", hdl.ListTickers)
+	mux.HandleFunc("GET /v1/market/tickers/{symbol}", hdl.GetTicker)
+	mux.HandleFunc("GET /v1/market/orderbook/{symbol}", hdl.GetOrderBook)
+	mux.HandleFunc("GET /v1/market/ws", hdl.HandleWebSocket)
 	mux.HandleFunc("GET /health", db.HealthHandler(database, "market-data-service"))
 
 	logger := applog.New("market-data-service")

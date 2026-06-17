@@ -28,10 +28,10 @@ func main() {
 	h := handler.New(repo)
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /history/orders", h.GetOrderHistory)
-	mux.HandleFunc("GET /history/trades", h.GetTradeHistory)
-	mux.HandleFunc("GET /history/balance", h.GetBalanceHistory)
-	mux.HandleFunc("GET /history/positions", h.GetPositionHistory)
+	mux.HandleFunc("GET /v1/history/orders", h.GetOrderHistory)
+	mux.HandleFunc("GET /v1/history/trades", h.GetTradeHistory)
+	mux.HandleFunc("GET /v1/history/balance", h.GetBalanceHistory)
+	mux.HandleFunc("GET /v1/history/positions", h.GetPositionHistory)
 	mux.HandleFunc("GET /health", db.HealthHandler(database, "history-service"))
 
 	logger := applog.New("history-service")

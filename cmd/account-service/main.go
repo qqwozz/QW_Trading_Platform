@@ -28,9 +28,9 @@ func main() {
 	h := handler.New(repo)
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /accounts", h.ListAccounts)
-	mux.HandleFunc("POST /accounts/deposit", h.Deposit)
-	mux.HandleFunc("POST /accounts/withdraw", h.Withdraw)
+	mux.HandleFunc("GET /v1/accounts", h.ListAccounts)
+	mux.HandleFunc("POST /v1/accounts/deposit", h.Deposit)
+	mux.HandleFunc("POST /v1/accounts/withdraw", h.Withdraw)
 	mux.HandleFunc("GET /health", db.HealthHandler(database, "account-service"))
 
 	logger := applog.New("account-service")

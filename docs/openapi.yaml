@@ -1,0 +1,342 @@
+openapi: 3.0.3
+info:
+  title: QW Trading Platform API
+  description: Virtual cryptocurrency exchange API
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080/v1
+    description: Local development
+paths:
+  /auth/register:
+    post:
+      summary: Register a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, username, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                username:
+                  type: string
+                  minLength: 3
+                  maxLength: 32
+                password:
+                  type: string
+                  minLength: 8
+      responses:
+        '201':
+          description: User created
+        '400':
+          description: Validation error
+        '409':
+          description: Email already exists
+  /auth/login:
+    post:
+      summary: Login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                password:
+                  type: string
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access_token:
+                    type: string
+                  refresh_token:
+                    type: string
+                  expires_in:
+                    type: integer
+        '401':
+          description: Invalid credentials
+        '429':
+          description: Account locked
+  /users/me:
+    get:
+      summary: Get current user profile
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: User profile
+        '401':
+          description: Unauthorized
+  /accounts:
+    get:
+      summary: List user accounts
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of accounts
+  /accounts/deposit:
+    post:
+      summary: Deposit funds
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currency, amount]
+              properties:
+                currency:
+                  type: string
+                amount:
+                  type: number
+                  minimum: 0.01
+                  maximum: 10000000
+      responses:
+        '200':
+          description: Deposit successful
+  /accounts/withdraw:
+    post:
+      summary: Withdraw funds
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currency, amount]
+              properties:
+                currency:
+                  type: string
+                amount:
+                  type: number
+                  minimum: 0.01
+                  maximum: 10000000
+      responses:
+        '200':
+          description: Withdrawal successful
+        '400':
+          description: Insufficient balance
+  /orders:
+    get:
+      summary: List orders
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: symbol
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: Paginated order list
+    post:
+      summary: Create order
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [symbol, side, type, quantity]
+              properties:
+                symbol:
+                  type: string
+                  example: BTC/USDT
+                side:
+                  type: string
+                  enum: [BUY, SELL]
+                type:
+                  type: string
+                  enum: [LIMIT, MARKET]
+                price:
+                  type: number
+                quantity:
+                  type: number
+                time_in_force:
+                  type: string
+                  enum: [GTC, IOC, FOK]
+                  default: GTC
+      responses:
+        '201':
+          description: Order created
+  /orders/{id}:
+    get:
+      summary: Get order by ID
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Order details
+        '404':
+          description: Order not found
+    delete:
+      summary: Cancel order
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Order cancelled
+        '409':
+          description: Order cannot be cancelled
+  /portfolio:
+    get:
+      summary: Get portfolio summary
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Portfolio with balances and positions
+  /positions:
+    get:
+      summary: List positions
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of positions
+    post:
+      summary: Update position
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Position updated
+  /balances:
+    get:
+      summary: Get account balances
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of balances
+  /market/tickers:
+    get:
+      summary: List market tickers
+      responses:
+        '200':
+          description: List of tickers
+  /market/tickers/{symbol}:
+    get:
+      summary: Get ticker by symbol
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Ticker data
+  /market/orderbook/{symbol}:
+    get:
+      summary: Get order book
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: depth
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Order book snapshot
+  /market/ws:
+    get:
+      summary: WebSocket market data
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '101':
+          description: WebSocket upgrade
+  /history/orders:
+    get:
+      summary: Order history
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Paginated order history
+  /history/trades:
+    get:
+      summary: Trade history
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Paginated trade history
+  /history/balance:
+    get:
+      summary: Balance history
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Paginated balance history
+  /history/positions:
+    get:
+      summary: Position history
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Paginated position history
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

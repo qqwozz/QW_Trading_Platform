@@ -29,10 +29,10 @@ func main() {
 	h := handler.New(posRepo, accRepo)
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /portfolio", h.GetPortfolio)
-	mux.HandleFunc("GET /positions", h.ListPositions)
-	mux.HandleFunc("POST /positions", h.UpdatePosition)
-	mux.HandleFunc("GET /balances", h.GetBalances)
+	mux.HandleFunc("GET /v1/portfolio", h.GetPortfolio)
+	mux.HandleFunc("GET /v1/positions", h.ListPositions)
+	mux.HandleFunc("POST /v1/positions", h.UpdatePosition)
+	mux.HandleFunc("GET /v1/balances", h.GetBalances)
 	mux.HandleFunc("GET /health", db.HealthHandler(database, "portfolio-service"))
 
 	logger := applog.New("portfolio-service")

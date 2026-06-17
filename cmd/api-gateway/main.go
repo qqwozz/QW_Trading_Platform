@@ -26,15 +26,15 @@ type Gateway struct {
 
 func NewGateway(_ *config.Config) *Gateway {
 	routes := []route{
-		{"/auth", "http://localhost:8081"},
-		{"/users", "http://localhost:8081"},
-		{"/accounts", "http://localhost:8082"},
-		{"/orders", "http://localhost:8083"},
-		{"/positions", "http://localhost:8084"},
-		{"/portfolio", "http://localhost:8084"},
-		{"/balances", "http://localhost:8084"},
-		{"/market", "http://localhost:8085"},
-		{"/history", "http://localhost:8086"},
+		{"/v1/auth", "http://localhost:8081"},
+		{"/v1/users", "http://localhost:8081"},
+		{"/v1/accounts", "http://localhost:8082"},
+		{"/v1/orders", "http://localhost:8083"},
+		{"/v1/positions", "http://localhost:8084"},
+		{"/v1/portfolio", "http://localhost:8084"},
+		{"/v1/balances", "http://localhost:8084"},
+		{"/v1/market", "http://localhost:8085"},
+		{"/v1/history", "http://localhost:8086"},
 	}
 	sort.Slice(routes, func(i, j int) bool {
 		return len(routes[i].prefix) > len(routes[j].prefix)

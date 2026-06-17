@@ -28,9 +28,9 @@ func main() {
 	h := handler.New(repo, cfg.JWTSecret, cfg.JWTExpiry)
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("POST /auth/register", h.Register)
-	mux.HandleFunc("POST /auth/login", h.Login)
-	mux.HandleFunc("GET /users/me", h.GetProfile)
+	mux.HandleFunc("POST /v1/auth/register", h.Register)
+	mux.HandleFunc("POST /v1/auth/login", h.Login)
+	mux.HandleFunc("GET /v1/users/me", h.GetProfile)
 	mux.HandleFunc("GET /health", db.HealthHandler(database, "user-service"))
 
 	logger := applog.New("user-service")

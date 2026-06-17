@@ -50,7 +50,7 @@ func TestAuth_PublicPaths(t *testing.T) {
 	})
 	handler := Auth("secret")(inner)
 
-	publicPaths := []string{"/auth/register", "/auth/login", "/health", "/docs"}
+	publicPaths := []string{"/v1/auth/register", "/v1/auth/login", "/health", "/docs"}
 	for _, path := range publicPaths {
 		req := httptest.NewRequest("GET", path, nil)
 		w := httptest.NewRecorder()

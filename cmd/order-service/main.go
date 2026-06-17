@@ -29,10 +29,10 @@ func main() {
 	h := handler.New(repo, tradeRepo)
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("POST /orders", h.CreateOrder)
-	mux.HandleFunc("GET /orders", h.ListOrders)
-	mux.HandleFunc("GET /orders/{id}", h.GetOrder)
-	mux.HandleFunc("DELETE /orders/{id}", h.CancelOrder)
+	mux.HandleFunc("POST /v1/orders", h.CreateOrder)
+	mux.HandleFunc("GET /v1/orders", h.ListOrders)
+	mux.HandleFunc("GET /v1/orders/{id}", h.GetOrder)
+	mux.HandleFunc("DELETE /v1/orders/{id}", h.CancelOrder)
 	mux.HandleFunc("GET /health", db.HealthHandler(database, "order-service"))
 
 	logger := applog.New("order-service")
