@@ -1,20 +1,17 @@
 package main
 
 import (
-	"context"
 	"io"
-	"log"
 	"net/http"
 	"os"
-	"os/signal"
 	"sort"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/qw-trading/platform/pkg/config"
-	"github.com/qw-trading/platform/pkg/logger"
+	applog "github.com/qw-trading/platform/pkg/logger"
 	"github.com/qw-trading/platform/pkg/middleware"
+	"github.com/qw-trading/platform/pkg/server"
 )
 
 type route struct {
@@ -118,34 +115,12 @@ func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	cfg := config.Load()
+	os.Setenv("PORT", cfg.Port)
 	gateway := NewGateway(cfg)
 
-	logger := logger.New("api-gateway")
+	logger := applog.New("api-gateway")
 	rl := middleware.NewRateLimiter(cfg.RateLimitRPS, cfg.RateLimitBurst)
 	wrapped := middleware.RequestID(middleware.Logger(logger)(rl.Middleware(middleware.CORS(cfg.AllowedOrigins)(gateway))))
 
-	srv := &http.Server{
-		Addr:         ":" + cfg.Port,
-		Handler:      wrapped,
-		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 15 * time.Second,
-		IdleTimeout:  60 * time.Second,
-	}
-
-	go func() {
-		log.Printf("API Gateway starting on :%s", cfg.Port)
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("Failed to start server: %v", err)
-		}
-	}()
-
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	<-quit
-
-	log.Println("Shutting down API Gateway...")
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-	srv.Shutdown(ctx)
-	log.Println("API Gateway stopped")
+	server.Run("api-gateway", wrapped, server.DefaultConfig(), logger)
 }

@@ -1,26 +1,22 @@
-// Command portfolio-service provides the portfolio and position management
-// service for the QW Trading Platform.
 package main
 
 import (
-	"context"
 	"log"
 	"net/http"
 	"os"
-	"os/signal"
-	"syscall"
-	"time"
 
 	"github.com/qw-trading/platform/internal/db"
 	"github.com/qw-trading/platform/internal/portfolio/handler"
 	"github.com/qw-trading/platform/internal/portfolio/repository"
 	"github.com/qw-trading/platform/pkg/config"
-	"github.com/qw-trading/platform/pkg/logger"
+	applog "github.com/qw-trading/platform/pkg/logger"
 	"github.com/qw-trading/platform/pkg/middleware"
+	"github.com/qw-trading/platform/pkg/server"
 )
 
 func main() {
 	cfg := config.Load()
+	os.Setenv("PORT", cfg.Port)
 
 	database, err := db.Connect(cfg.DatabaseDSN(), cfg.DBMaxOpen, cfg.DBMaxIdle)
 	if err != nil {
@@ -33,40 +29,15 @@ func main() {
 	h := handler.New(posRepo, accRepo)
 
 	mux := http.NewServeMux()
-
 	mux.HandleFunc("GET /portfolio", h.GetPortfolio)
 	mux.HandleFunc("GET /positions", h.ListPositions)
 	mux.HandleFunc("POST /positions", h.UpdatePosition)
 	mux.HandleFunc("GET /balances", h.GetBalances)
 	mux.HandleFunc("GET /health", db.HealthHandler(database, "portfolio-service"))
 
-	logger := logger.New("portfolio-service")
+	logger := applog.New("portfolio-service")
 	rl := middleware.NewRateLimiter(cfg.RateLimitRPS, cfg.RateLimitBurst)
 	wrapped := middleware.RequestID(middleware.Logger(logger)(rl.Middleware(middleware.CORS(cfg.AllowedOrigins)(mux))))
 
-	srv := &http.Server{
-		Addr:         ":" + cfg.Port,
-		Handler:      wrapped,
-		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 10 * time.Second,
-		IdleTimeout:  60 * time.Second,
-	}
-
-	go func() {
-		log.Printf("Portfolio service starting on :%s", cfg.Port)
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("Failed to start server: %v", err)
-		}
-	}()
-
-	// Wait for interrupt signal for graceful shutdown.
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	<-quit
-
-	log.Println("Shutting down portfolio service...")
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-	srv.Shutdown(ctx)
-	log.Println("Portfolio service stopped")
+	server.Run("portfolio-service", wrapped, server.DefaultConfig(), logger)
 }
