@@ -42,7 +42,8 @@ func main() {
 		w.Write([]byte(`{"status":"healthy"}`))
 	})
 
-	wrapped := middleware.Logger(middleware.CORS(cfg.AllowedOrigins)(mux))
+	rl := middleware.NewRateLimiter(cfg.RateLimitRPS, cfg.RateLimitBurst)
+	wrapped := middleware.Logger(rl.Middleware(middleware.CORS(cfg.AllowedOrigins)(mux)))
 
 	srv := &http.Server{
 		Addr:         ":" + cfg.Port,

@@ -119,7 +119,8 @@ func main() {
 	cfg := config.Load()
 	gateway := NewGateway(cfg)
 
-	wrapped := middleware.Logger(middleware.CORS(cfg.AllowedOrigins)(gateway))
+	rl := middleware.NewRateLimiter(cfg.RateLimitRPS, cfg.RateLimitBurst)
+	wrapped := middleware.Logger(rl.Middleware(middleware.CORS(cfg.AllowedOrigins)(gateway)))
 
 	srv := &http.Server{
 		Addr:         ":" + cfg.Port,

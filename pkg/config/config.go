@@ -29,6 +29,10 @@ type Config struct {
 	GRPCPort       string
 	Env            string
 	AllowedOrigins string
+
+	// Rate limiting
+	RateLimitRPS  float64
+	RateLimitBurst int
 }
 
 // Load reads configuration from environment variables and returns a Config
@@ -52,6 +56,8 @@ func Load() *Config {
 		GRPCPort:       getEnv("GRPC_PORT", "9090"),
 		Env:            getEnv("APP_ENV", "development"),
 		AllowedOrigins: getEnv("ALLOWED_ORIGINS", "*"),
+		RateLimitRPS:   getEnvFloat("RATE_LIMIT_RPS", 100),
+		RateLimitBurst: getEnvInt("RATE_LIMIT_BURST", 200),
 	}
 }
 
@@ -79,6 +85,15 @@ func getEnvInt(key string, fallback int) int {
 	if v := os.Getenv(key); v != "" {
 		if i, err := strconv.Atoi(v); err == nil {
 			return i
+		}
+	}
+	return fallback
+}
+
+func getEnvFloat(key string, fallback float64) float64 {
+	if v := os.Getenv(key); v != "" {
+		if f, err := strconv.ParseFloat(v, 64); err == nil {
+			return f
 		}
 	}
 	return fallback

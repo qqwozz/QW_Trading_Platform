@@ -85,3 +85,21 @@ func TestGetEnvInt_Empty(t *testing.T) {
 		t.Errorf("getEnvInt() = %d, want 99 (fallback)", result)
 	}
 }
+
+func TestGetEnvFloat_Defaults(t *testing.T) {
+	os.Clearenv()
+	result := getEnvFloat("NONEXISTENT_FLOAT", 3.14)
+	if result != 3.14 {
+		t.Errorf("getEnvFloat() = %f, want 3.14", result)
+	}
+}
+
+func TestGetEnvFloat_Parses(t *testing.T) {
+	os.Setenv("TEST_FLOAT", "2.5")
+	defer os.Unsetenv("TEST_FLOAT")
+
+	result := getEnvFloat("TEST_FLOAT", 1.0)
+	if result != 2.5 {
+		t.Errorf("getEnvFloat() = %f, want 2.5", result)
+	}
+}
