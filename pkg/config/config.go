@@ -31,8 +31,12 @@ type Config struct {
 	AllowedOrigins string
 
 	// Rate limiting
-	RateLimitRPS  float64
+	RateLimitRPS   float64
 	RateLimitBurst int
+
+	// Trading fees (basis points, 1 bp = 0.01%)
+	MakerFeeBPS int
+	TakerFeeBPS int
 }
 
 // Load reads configuration from environment variables and returns a Config
@@ -58,6 +62,8 @@ func Load() *Config {
 		AllowedOrigins: getEnv("ALLOWED_ORIGINS", "*"),
 		RateLimitRPS:   getEnvFloat("RATE_LIMIT_RPS", 100),
 		RateLimitBurst: getEnvInt("RATE_LIMIT_BURST", 200),
+		MakerFeeBPS:    getEnvInt("MAKER_FEE_BPS", 10),
+		TakerFeeBPS:    getEnvInt("TAKER_FEE_BPS", 20),
 	}
 }
 
