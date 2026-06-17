@@ -15,6 +15,7 @@ import (
 	"github.com/qw-trading/platform/internal/user/handler"
 	"github.com/qw-trading/platform/internal/user/repository"
 	"github.com/qw-trading/platform/pkg/config"
+	"github.com/qw-trading/platform/pkg/logger"
 	"github.com/qw-trading/platform/pkg/middleware"
 )
 
@@ -40,8 +41,9 @@ func main() {
 		w.Write([]byte(`{"status":"healthy"}`))
 	})
 
+	logger := logger.New("user-service")
 	rl := middleware.NewRateLimiter(cfg.RateLimitRPS, cfg.RateLimitBurst)
-	wrapped := middleware.Logger(rl.Middleware(middleware.CORS(cfg.AllowedOrigins)(mux)))
+	wrapped := middleware.RequestID(middleware.Logger(logger)(rl.Middleware(middleware.CORS(cfg.AllowedOrigins)(mux))))
 
 	srv := &http.Server{
 		Addr:         ":" + cfg.Port,

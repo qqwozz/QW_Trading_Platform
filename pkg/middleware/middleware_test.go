@@ -8,6 +8,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	"github.com/qw-trading/platform/pkg/logger"
 )
 
 func TestCORS_SetsHeaders(t *testing.T) {
@@ -170,10 +171,11 @@ func TestGetUserID_Invalid(t *testing.T) {
 }
 
 func TestLogger(t *testing.T) {
+	l := logger.New("test")
 	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusCreated)
 	})
-	handler := Logger(inner)
+	handler := Logger(l)(inner)
 
 	req := httptest.NewRequest("GET", "/test", nil)
 	w := httptest.NewRecorder()
@@ -181,6 +183,39 @@ func TestLogger(t *testing.T) {
 
 	if w.Code != http.StatusCreated {
 		t.Errorf("status = %d, want %d", w.Code, http.StatusCreated)
+	}
+}
+
+func TestRequestID_Generated(t *testing.T) {
+	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		rid, ok := r.Context().Value(RequestIDKey).(string)
+		if !ok || rid == "" {
+			t.Error("RequestID not in context")
+		}
+		w.WriteHeader(http.StatusOK)
+	})
+	handler := RequestID(inner)
+
+	req := httptest.NewRequest("GET", "/test", nil)
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+
+	if w.Header().Get("X-Request-ID") == "" {
+		t.Error("X-Request-ID header not set")
+	}
+}
+
+func TestRequestID_Preserved(t *testing.T) {
+	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
+	handler := RequestID(inner)
+
+	req := httptest.NewRequest("GET", "/test", nil)
+	req.Header.Set("X-Request-ID", "my-custom-id")
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+
+	if w.Header().Get("X-Request-ID") != "my-custom-id" {
+		t.Errorf("X-Request-ID = %q, want %q", w.Header().Get("X-Request-ID"), "my-custom-id")
 	}
 }
 

@@ -10,13 +10,18 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	"github.com/qw-trading/platform/pkg/logger"
 )
 
 // contextKey is a private type for context keys to avoid collisions.
 type contextKey string
 
-// UserIDKey is the context key used to store the authenticated user's ID.
-const UserIDKey contextKey = "user_id"
+const (
+	// UserIDKey is the context key used to store the authenticated user's ID.
+	UserIDKey contextKey = "user_id"
+	// RequestIDKey is the context key used to store the request ID.
+	RequestIDKey contextKey = "request_id"
+)
 
 // CORS returns middleware that sets Cross-Origin Resource Sharing headers
 // and handles preflight OPTIONS requests.
@@ -78,26 +83,33 @@ func Auth(jwtSecret string) func(http.Handler) http.Handler {
 	}
 }
 
-// Logger returns middleware that records the request method, path, status code,
-// and duration for each HTTP request.
-func Logger(next http.Handler) http.Handler {
+// RequestID returns middleware that generates a unique request ID and injects
+// it into the request context and response header.
+func RequestID(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		start := time.Now()
-		wrapped := &responseWriter{ResponseWriter: w, statusCode: http.StatusOK}
-
-		next.ServeHTTP(wrapped, r)
-
-		// Log request details. In production this would write to a structured logger.
-		logMethod := r.Method
-		logPath := r.URL.Path
-		logStatus := wrapped.statusCode
-		logDuration := time.Since(start)
-
-		_ = logMethod
-		_ = logPath
-		_ = logStatus
-		_ = logDuration
+		rid := r.Header.Get("X-Request-ID")
+		if rid == "" {
+			rid = uuid.New().String()
+		}
+		w.Header().Set("X-Request-ID", rid)
+		ctx := context.WithValue(r.Context(), RequestIDKey, rid)
+		next.ServeHTTP(w, r.WithContext(ctx))
 	})
+}
+
+// Logger returns middleware that logs each request using the structured logger.
+func Logger(l *logger.Logger) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			start := time.Now()
+			wrapped := &responseWriter{ResponseWriter: w, statusCode: http.StatusOK}
+
+			next.ServeHTTP(wrapped, r)
+
+			rid, _ := r.Context().Value(RequestIDKey).(string)
+			l.Request(r.Method, r.URL.Path, wrapped.statusCode, time.Since(start), rid)
+		})
+	}
 }
 
 // GetUserID extracts the authenticated user ID from the request context.
