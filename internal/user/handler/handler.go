@@ -19,13 +19,13 @@ import (
 
 // Handler holds dependencies for user-related HTTP handlers.
 type Handler struct {
-	repo      *repository.UserRepository
+	repo      repository.UserRepositoryInterface
 	jwtSecret string
 	jwtExpiry int
 }
 
 // New creates a new Handler with the given repository and JWT configuration.
-func New(repo *repository.UserRepository, jwtSecret string, jwtExpiry int) *Handler {
+func New(repo repository.UserRepositoryInterface, jwtSecret string, jwtExpiry int) *Handler {
 	return &Handler{repo: repo, jwtSecret: jwtSecret, jwtExpiry: jwtExpiry}
 }
 

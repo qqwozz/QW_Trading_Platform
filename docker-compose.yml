@@ -33,7 +33,7 @@ services:
   user-service:
     build:
       context: .
-      dockerfile: Dockerfile.go
+      dockerfile: deploy/Dockerfile-go
       args:
         SERVICE: cmd/user-service
     container_name: qw_user_service
@@ -53,7 +53,7 @@ services:
   account-service:
     build:
       context: .
-      dockerfile: Dockerfile.go
+      dockerfile: deploy/Dockerfile-go
       args:
         SERVICE: cmd/account-service
     container_name: qw_account_service
@@ -72,7 +72,7 @@ services:
   order-service:
     build:
       context: .
-      dockerfile: Dockerfile.go
+      dockerfile: deploy/Dockerfile-go
       args:
         SERVICE: cmd/order-service
     container_name: qw_order_service
@@ -91,7 +91,7 @@ services:
   portfolio-service:
     build:
       context: .
-      dockerfile: Dockerfile.go
+      dockerfile: deploy/Dockerfile-go
       args:
         SERVICE: cmd/portfolio-service
     container_name: qw_portfolio_service
@@ -110,7 +110,7 @@ services:
   matching-engine:
     build:
       context: .
-      dockerfile: Dockerfile.cpp
+      dockerfile: deploy/Dockerfile-cpp
     container_name: qw_matching_engine
     ports:
       - "50051:50051"
@@ -118,7 +118,7 @@ services:
   api-gateway:
     build:
       context: .
-      dockerfile: Dockerfile.go
+      dockerfile: deploy/Dockerfile-go
       args:
         SERVICE: cmd/api-gateway
     container_name: qw_api_gateway

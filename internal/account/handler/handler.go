@@ -12,11 +12,11 @@ import (
 
 // Handler holds dependencies for account-related HTTP handlers.
 type Handler struct {
-	repo *repository.AccountRepository
+	repo repository.AccountRepositoryInterface
 }
 
 // New creates a new Handler with the given repository.
-func New(repo *repository.AccountRepository) *Handler {
+func New(repo repository.AccountRepositoryInterface) *Handler {
 	return &Handler{repo: repo}
 }
 

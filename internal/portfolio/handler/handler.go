@@ -16,12 +16,12 @@ import (
 
 // Handler holds dependencies for portfolio-related HTTP handlers.
 type Handler struct {
-	posRepo *repository.PositionRepository
-	accRepo *repository.AccountRepository
+	posRepo repository.PositionRepositoryInterface
+	accRepo repository.AccountRepositoryInterface
 }
 
 // New creates a new Handler with the given repositories.
-func New(posRepo *repository.PositionRepository, accRepo *repository.AccountRepository) *Handler {
+func New(posRepo repository.PositionRepositoryInterface, accRepo repository.AccountRepositoryInterface) *Handler {
 	return &Handler{posRepo: posRepo, accRepo: accRepo}
 }
 

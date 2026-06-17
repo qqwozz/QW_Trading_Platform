@@ -3,7 +3,6 @@ package handler
 
 import (
 	"net/http"
-	"strconv"
 
 	"github.com/qw-trading/platform/internal/history/repository"
 	"github.com/qw-trading/platform/internal/models"
@@ -13,11 +12,11 @@ import (
 
 // Handler holds dependencies for history-related HTTP handlers.
 type Handler struct {
-	repo *repository.HistoryRepository
+	repo repository.HistoryRepositoryInterface
 }
 
 // New creates a new Handler with the given repository.
-func New(repo *repository.HistoryRepository) *Handler {
+func New(repo repository.HistoryRepositoryInterface) *Handler {
 	return &Handler{repo: repo}
 }
 
@@ -86,14 +85,7 @@ func (h *Handler) GetOrderHistory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-	if limit <= 0 || limit > 100 {
-		limit = 50
-	}
-	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
-	if offset < 0 {
-		offset = 0
-	}
+	limit, offset := response.ParsePagination(r, 50)
 
 	orders, total, err := h.repo.GetOrderHistory(userID, r.URL.Query().Get("symbol"), limit, offset)
 	if err != nil {
@@ -118,14 +110,7 @@ func (h *Handler) GetTradeHistory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-	if limit <= 0 || limit > 100 {
-		limit = 50
-	}
-	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
-	if offset < 0 {
-		offset = 0
-	}
+	limit, offset := response.ParsePagination(r, 50)
 
 	trades, total, err := h.repo.GetTradeHistory(userID, r.URL.Query().Get("symbol"), limit, offset)
 	if err != nil {
@@ -150,14 +135,7 @@ func (h *Handler) GetBalanceHistory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-	if limit <= 0 || limit > 100 {
-		limit = 50
-	}
-	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
-	if offset < 0 {
-		offset = 0
-	}
+	limit, offset := response.ParsePagination(r, 50)
 
 	history, total, err := h.repo.GetBalanceHistory(userID, r.URL.Query().Get("currency"), limit, offset)
 	if err != nil {
@@ -182,14 +160,7 @@ func (h *Handler) GetPositionHistory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-	if limit <= 0 || limit > 100 {
-		limit = 50
-	}
-	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
-	if offset < 0 {
-		offset = 0
-	}
+	limit, offset := response.ParsePagination(r, 50)
 
 	history, total, err := h.repo.GetPositionHistory(userID, r.URL.Query().Get("symbol"), limit, offset)
 	if err != nil {

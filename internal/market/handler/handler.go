@@ -15,12 +15,12 @@ import (
 
 // Handler holds dependencies for market data HTTP handlers.
 type Handler struct {
-	repo *repository.MarketRepository
+	repo repository.MarketRepositoryInterface
 	hub  *hub.Hub
 }
 
 // New creates a new Handler with the given repository and WebSocket hub.
-func New(repo *repository.MarketRepository, h *hub.Hub) *Handler {
+func New(repo repository.MarketRepositoryInterface, h *hub.Hub) *Handler {
 	return &Handler{repo: repo, hub: h}
 }
 
@@ -126,10 +126,4 @@ func (h *Handler) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	h.hub.HandleWebSocket(w, r)
 }
 
-// min returns the smaller of two integers.
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
+

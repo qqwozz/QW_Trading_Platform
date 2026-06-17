@@ -4,7 +4,6 @@ package handler
 import (
 	"encoding/json"
 	"net/http"
-	"strconv"
 
 	"github.com/google/uuid"
 
@@ -17,12 +16,12 @@ import (
 
 // Handler holds dependencies for order-related HTTP handlers.
 type Handler struct {
-	repo      *repository.OrderRepository
-	tradeRepo *repository.TradeRepository
+	repo      repository.OrderRepositoryInterface
+	tradeRepo repository.TradeRepositoryInterface
 }
 
 // New creates a new Handler with the given repositories.
-func New(repo *repository.OrderRepository, tradeRepo *repository.TradeRepository) *Handler {
+func New(repo repository.OrderRepositoryInterface, tradeRepo repository.TradeRepositoryInterface) *Handler {
 	return &Handler{repo: repo, tradeRepo: tradeRepo}
 }
 
@@ -137,14 +136,7 @@ func (h *Handler) ListOrders(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-	if limit <= 0 || limit > 100 {
-		limit = 50
-	}
-	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
-	if offset < 0 {
-		offset = 0
-	}
+	limit, offset := response.ParsePagination(r, 50)
 
 	orders, total, err := h.repo.List(repository.ListFilter{
 		UserID: userID,
