@@ -1,8 +1,8 @@
 package response
 
 import (
-	"encoding/json"
-	"net/http"
+	"github.com/google/uuid"
+	"github.com/qw-trading/platform/internal/models"
 )
 
 type OrderResponse struct {
@@ -33,8 +33,39 @@ type TradeResponse struct {
 	ExecutedAt    string  `json:"executed_at"`
 }
 
-func WriteJSON(w http.ResponseWriter, status int, v interface{}) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(v)
+func OrderFromModel(order *models.Order) OrderResponse {
+	return OrderResponse{
+		ID:             order.ID.String(),
+		Symbol:         order.Symbol,
+		Side:           string(order.Side),
+		Type:           string(order.Type),
+		Price:          order.Price,
+		Quantity:       order.Quantity,
+		FilledQuantity: order.FilledQuantity,
+		Status:         string(order.Status),
+		TimeInForce:    string(order.TimeInForce),
+		CreatedAt:      order.CreatedAt.Format("2006-01-02T15:04:05Z"),
+		UpdatedAt:      order.UpdatedAt.Format("2006-01-02T15:04:05Z"),
+	}
+}
+
+func TradeFromModel(trade *models.Trade) TradeResponse {
+	return TradeResponse{
+		ID:            trade.ID.String(),
+		Symbol:        trade.Symbol,
+		BuyerOrderID:  trade.BuyerOrderID.String(),
+		SellerOrderID: trade.SellerOrderID.String(),
+		BuyerID:       trade.BuyerID.String(),
+		SellerID:      trade.SellerID.String(),
+		Price:         trade.Price,
+		Quantity:      trade.Quantity,
+		BuyerFee:      trade.BuyerFee,
+		SellerFee:     trade.SellerFee,
+		ExecutedAt:    trade.ExecutedAt.Format("2006-01-02T15:04:05Z"),
+	}
+}
+
+func MustParseUUID(s string) uuid.UUID {
+	id, _ := uuid.Parse(s)
+	return id
 }

@@ -1,7 +1,7 @@
-// Package repository provides data access for the portfolio domain, backed by PostgreSQL.
 package repository
 
 import (
+	"context"
 	"database/sql"
 
 	"github.com/google/uuid"
@@ -10,25 +10,21 @@ import (
 	apperr "github.com/qw-trading/platform/pkg/errors"
 )
 
-// PositionRepository handles database operations for position entities.
 type PositionRepository struct {
 	db *db.Database
 }
 
-// New creates a new PositionRepository.
 func New(db *db.Database) *PositionRepository {
 	return &PositionRepository{db: db}
 }
 
-// GetByUserID retrieves all non-zero positions for a user, ordered by most
-// recently updated.
-func (r *PositionRepository) GetByUserID(userID uuid.UUID) ([]models.Position, error) {
+func (r *PositionRepository) GetByUserID(ctx context.Context, userID uuid.UUID) ([]models.Position, error) {
 	query := `
 		SELECT id, user_id, account_id, symbol, quantity, average_price, unrealized_pnl, updated_at
 		FROM positions WHERE user_id = $1 AND quantity > 0
 		ORDER BY updated_at DESC`
 
-	rows, err := r.db.Query(query, userID)
+	rows, err := r.db.QueryContext(ctx, query, userID)
 	if err != nil {
 		return nil, apperr.InternalErr("failed to query positions", err)
 	}
@@ -49,15 +45,13 @@ func (r *PositionRepository) GetByUserID(userID uuid.UUID) ([]models.Position, e
 	return positions, nil
 }
 
-// GetByUserAndSymbol retrieves a position by user and symbol. Returns a
-// NotFound error if no matching position exists.
-func (r *PositionRepository) GetByUserAndSymbol(userID uuid.UUID, symbol string) (*models.Position, error) {
+func (r *PositionRepository) GetByUserAndSymbol(ctx context.Context, userID uuid.UUID, symbol string) (*models.Position, error) {
 	pos := &models.Position{}
 	query := `
 		SELECT id, user_id, account_id, symbol, quantity, average_price, unrealized_pnl, updated_at
 		FROM positions WHERE user_id = $1 AND symbol = $2`
 
-	err := r.db.QueryRow(query, userID, symbol).Scan(
+	err := r.db.QueryRowContext(ctx, query, userID, symbol).Scan(
 		&pos.ID, &pos.UserID, &pos.AccountID, &pos.Symbol,
 		&pos.Quantity, &pos.AveragePrice, &pos.UnrealizedPnL,
 		&pos.UpdatedAt,
@@ -68,9 +62,7 @@ func (r *PositionRepository) GetByUserAndSymbol(userID uuid.UUID, symbol string)
 	return pos, apperr.InternalErr("failed to get position", err)
 }
 
-// Upsert inserts a new position or updates an existing one (matched on
-// user_id and symbol) with the provided values.
-func (r *PositionRepository) Upsert(pos *models.Position) error {
+func (r *PositionRepository) Upsert(ctx context.Context, pos *models.Position) error {
 	query := `
 		INSERT INTO positions (id, user_id, account_id, symbol, quantity, average_price, unrealized_pnl)
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -82,30 +74,26 @@ func (r *PositionRepository) Upsert(pos *models.Position) error {
 			updated_at = NOW()
 		RETURNING updated_at`
 
-	return r.db.QueryRow(query,
+	return r.db.QueryRowContext(ctx, query,
 		pos.ID, pos.UserID, pos.AccountID, pos.Symbol,
 		pos.Quantity, pos.AveragePrice, pos.UnrealizedPnL,
 	).Scan(&pos.UpdatedAt)
 }
 
-// AccountRepository handles database operations for accounts within the
-// portfolio context.
 type AccountRepository struct {
 	db *db.Database
 }
 
-// NewAccountRepository creates a new AccountRepository for portfolio queries.
 func NewAccountRepository(db *db.Database) *AccountRepository {
 	return &AccountRepository{db: db}
 }
 
-// GetByUserID retrieves all accounts for a user, ordered by creation time.
-func (r *AccountRepository) GetByUserID(userID uuid.UUID) ([]models.Account, error) {
+func (r *AccountRepository) GetByUserID(ctx context.Context, userID uuid.UUID) ([]models.Account, error) {
 	query := `
 		SELECT id, user_id, type, balance, frozen_balance, currency, created_at, updated_at, status
 		FROM accounts WHERE user_id = $1 ORDER BY created_at`
 
-	rows, err := r.db.Query(query, userID)
+	rows, err := r.db.QueryContext(ctx, query, userID)
 	if err != nil {
 		return nil, apperr.InternalErr("failed to query accounts", err)
 	}

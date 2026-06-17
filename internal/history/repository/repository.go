@@ -1,7 +1,7 @@
-// Package repository provides data access for the history domain, backed by PostgreSQL.
 package repository
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -10,47 +10,41 @@ import (
 	apperr "github.com/qw-trading/platform/pkg/errors"
 )
 
-// HistoryRepository handles database operations for historical data queries.
 type HistoryRepository struct {
 	db *db.Database
 }
 
-// New creates a new HistoryRepository.
 func New(database *db.Database) *HistoryRepository {
 	return &HistoryRepository{db: database}
 }
 
-// RecordBalanceChange inserts a balance change event into the balance_history table.
-func (r *HistoryRepository) RecordBalanceChange(entry *models.BalanceHistory) error {
+func (r *HistoryRepository) RecordBalanceChange(ctx context.Context, entry *models.BalanceHistory) error {
 	query := `
 		INSERT INTO balance_history (id, user_id, account_id, currency, amount, balance_before, balance_after, type, description)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 		RETURNING created_at`
 
-	return r.db.QueryRow(query,
+	return r.db.QueryRowContext(ctx, query,
 		entry.ID, entry.UserID, entry.AccountID, entry.Currency,
 		entry.Amount, entry.BalanceBefore, entry.BalanceAfter,
 		entry.Type, entry.Description,
 	).Scan(&entry.CreatedAt)
 }
 
-// RecordPositionChange inserts a position change event into the position_history table.
-func (r *HistoryRepository) RecordPositionChange(entry *models.PositionHistory) error {
+func (r *HistoryRepository) RecordPositionChange(ctx context.Context, entry *models.PositionHistory) error {
 	query := `
 		INSERT INTO position_history (id, user_id, account_id, symbol, quantity_change, quantity_before, quantity_after, avg_price_before, avg_price_after, type, trade_id)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 		RETURNING created_at`
 
-	return r.db.QueryRow(query,
+	return r.db.QueryRowContext(ctx, query,
 		entry.ID, entry.UserID, entry.AccountID, entry.Symbol,
 		entry.QuantityChange, entry.QuantityBefore, entry.QuantityAfter,
 		entry.AvgPriceBefore, entry.AvgPriceAfter, entry.Type, entry.TradeID,
 	).Scan(&entry.CreatedAt)
 }
 
-// GetOrderHistory retrieves paginated order history for a user, optionally
-// filtered by symbol.
-func (r *HistoryRepository) GetOrderHistory(userID uuid.UUID, symbol string, limit, offset int) ([]models.Order, int, error) {
+func (r *HistoryRepository) GetOrderHistory(ctx context.Context, userID uuid.UUID, symbol string, limit, offset int) ([]models.Order, int, error) {
 	countQuery := `SELECT COUNT(*) FROM orders WHERE user_id = $1`
 	listQuery := `
 		SELECT id, user_id, account_id, symbol, side, type, price, quantity,
@@ -68,14 +62,14 @@ func (r *HistoryRepository) GetOrderHistory(userID uuid.UUID, symbol string, lim
 	}
 
 	var total int
-	if err := r.db.QueryRow(countQuery, args[:argIdx]...).Scan(&total); err != nil {
+	if err := r.db.QueryRowContext(ctx, countQuery, args[:argIdx]...).Scan(&total); err != nil {
 		return nil, 0, apperr.InternalErr("failed to count orders", err)
 	}
 
 	listQuery += fmt.Sprintf(` ORDER BY created_at DESC LIMIT $%d OFFSET $%d`, argIdx+1, argIdx+2)
 	args = append(args, limit, offset)
 
-	rows, err := r.db.Query(listQuery, args...)
+	rows, err := r.db.QueryContext(ctx, listQuery, args...)
 	if err != nil {
 		return nil, 0, apperr.InternalErr("failed to list orders", err)
 	}
@@ -97,9 +91,7 @@ func (r *HistoryRepository) GetOrderHistory(userID uuid.UUID, symbol string, lim
 	return orders, total, nil
 }
 
-// GetTradeHistory retrieves paginated trade history for a user, optionally
-// filtered by symbol. Includes trades where the user was either buyer or seller.
-func (r *HistoryRepository) GetTradeHistory(userID uuid.UUID, symbol string, limit, offset int) ([]models.Trade, int, error) {
+func (r *HistoryRepository) GetTradeHistory(ctx context.Context, userID uuid.UUID, symbol string, limit, offset int) ([]models.Trade, int, error) {
 	countQuery := `SELECT COUNT(*) FROM trades WHERE buyer_id = $1 OR seller_id = $1`
 	listQuery := `
 		SELECT id, symbol, buyer_order_id, seller_order_id, buyer_id, seller_id,
@@ -117,14 +109,14 @@ func (r *HistoryRepository) GetTradeHistory(userID uuid.UUID, symbol string, lim
 	}
 
 	var total int
-	if err := r.db.QueryRow(countQuery, args[:argIdx]...).Scan(&total); err != nil {
+	if err := r.db.QueryRowContext(ctx, countQuery, args[:argIdx]...).Scan(&total); err != nil {
 		return nil, 0, apperr.InternalErr("failed to count trades", err)
 	}
 
 	listQuery += fmt.Sprintf(` ORDER BY executed_at DESC LIMIT $%d OFFSET $%d`, argIdx+1, argIdx+2)
 	args = append(args, limit, offset)
 
-	rows, err := r.db.Query(listQuery, args...)
+	rows, err := r.db.QueryContext(ctx, listQuery, args...)
 	if err != nil {
 		return nil, 0, apperr.InternalErr("failed to list trades", err)
 	}
@@ -145,9 +137,7 @@ func (r *HistoryRepository) GetTradeHistory(userID uuid.UUID, symbol string, lim
 	return trades, total, nil
 }
 
-// GetBalanceHistory retrieves paginated balance change history for a user,
-// optionally filtered by currency.
-func (r *HistoryRepository) GetBalanceHistory(userID uuid.UUID, currency string, limit, offset int) ([]models.BalanceHistory, int, error) {
+func (r *HistoryRepository) GetBalanceHistory(ctx context.Context, userID uuid.UUID, currency string, limit, offset int) ([]models.BalanceHistory, int, error) {
 	countQuery := `SELECT COUNT(*) FROM balance_history WHERE user_id = $1`
 	listQuery := `
 		SELECT id, user_id, account_id, currency, amount, balance_before, balance_after, type, description, created_at
@@ -164,14 +154,14 @@ func (r *HistoryRepository) GetBalanceHistory(userID uuid.UUID, currency string,
 	}
 
 	var total int
-	if err := r.db.QueryRow(countQuery, args[:argIdx]...).Scan(&total); err != nil {
+	if err := r.db.QueryRowContext(ctx, countQuery, args[:argIdx]...).Scan(&total); err != nil {
 		return nil, 0, apperr.InternalErr("failed to count balance history", err)
 	}
 
 	listQuery += fmt.Sprintf(` ORDER BY created_at DESC LIMIT $%d OFFSET $%d`, argIdx+1, argIdx+2)
 	args = append(args, limit, offset)
 
-	rows, err := r.db.Query(listQuery, args...)
+	rows, err := r.db.QueryContext(ctx, listQuery, args...)
 	if err != nil {
 		return nil, 0, apperr.InternalErr("failed to list balance history", err)
 	}
@@ -192,9 +182,7 @@ func (r *HistoryRepository) GetBalanceHistory(userID uuid.UUID, currency string,
 	return history, total, nil
 }
 
-// GetPositionHistory retrieves paginated position change history for a user,
-// optionally filtered by symbol.
-func (r *HistoryRepository) GetPositionHistory(userID uuid.UUID, symbol string, limit, offset int) ([]models.PositionHistory, int, error) {
+func (r *HistoryRepository) GetPositionHistory(ctx context.Context, userID uuid.UUID, symbol string, limit, offset int) ([]models.PositionHistory, int, error) {
 	countQuery := `SELECT COUNT(*) FROM position_history WHERE user_id = $1`
 	listQuery := `
 		SELECT id, user_id, account_id, symbol, quantity_change, quantity_before, quantity_after,
@@ -212,14 +200,14 @@ func (r *HistoryRepository) GetPositionHistory(userID uuid.UUID, symbol string, 
 	}
 
 	var total int
-	if err := r.db.QueryRow(countQuery, args[:argIdx]...).Scan(&total); err != nil {
+	if err := r.db.QueryRowContext(ctx, countQuery, args[:argIdx]...).Scan(&total); err != nil {
 		return nil, 0, apperr.InternalErr("failed to count position history", err)
 	}
 
 	listQuery += fmt.Sprintf(` ORDER BY created_at DESC LIMIT $%d OFFSET $%d`, argIdx+1, argIdx+2)
 	args = append(args, limit, offset)
 
-	rows, err := r.db.Query(listQuery, args...)
+	rows, err := r.db.QueryContext(ctx, listQuery, args...)
 	if err != nil {
 		return nil, 0, apperr.InternalErr("failed to list position history", err)
 	}
@@ -239,10 +227,4 @@ func (r *HistoryRepository) GetPositionHistory(userID uuid.UUID, symbol string, 
 		history = append(history, entry)
 	}
 	return history, total, nil
-}
-
-// RecordBalanceHistory is an alias for RecordBalanceChange, provided for
-// API compatibility.
-func (r *HistoryRepository) RecordBalanceHistory(entry *models.BalanceHistory) error {
-	return r.RecordBalanceChange(entry)
 }

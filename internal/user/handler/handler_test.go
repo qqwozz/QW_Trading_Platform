@@ -25,7 +25,7 @@ func TestRegister_Success(t *testing.T) {
 	body, _ := json.Marshal(RegisterRequest{
 		Email:    "test@example.com",
 		Username: "tester",
-		Password: "pass123",
+		Password: "pass1234",
 	})
 	req := httptest.NewRequest("POST", "/auth/register", bytes.NewReader(body))
 	w := httptest.NewRecorder()
@@ -59,7 +59,7 @@ func TestRegister_EmailExists(t *testing.T) {
 	body, _ := json.Marshal(RegisterRequest{
 		Email:    "exists@example.com",
 		Username: "tester",
-		Password: "pass123",
+		Password: "pass1234",
 	})
 	req := httptest.NewRequest("POST", "/auth/register", bytes.NewReader(body))
 	w := httptest.NewRecorder()

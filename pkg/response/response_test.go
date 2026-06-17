@@ -5,6 +5,10 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/qw-trading/platform/internal/models"
 )
 
 func TestJSON(t *testing.T) {
@@ -158,15 +162,33 @@ func TestParsePagination_NegativeOffset(t *testing.T) {
 	}
 }
 
-func TestWriteJSON(t *testing.T) {
-	w := httptest.NewRecorder()
-	WriteJSON(w, http.StatusOK, map[string]int{"n": 42})
-	if w.Code != http.StatusOK {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusOK)
+func TestOrderFromModel(t *testing.T) {
+	now := time.Now()
+	order := &models.Order{
+		ID: uuid.New(), Symbol: "BTC/USDT", Side: models.OrderSideBuy, Type: models.OrderTypeLimit,
+		Quantity: 1.5, Status: models.OrderStatusOpen, TimeInForce: models.TimeInForceGTC,
+		CreatedAt: now, UpdatedAt: now,
 	}
-	var body map[string]int
-	json.NewDecoder(w.Body).Decode(&body)
-	if body["n"] != 42 {
-		t.Errorf("body n = %d, want 42", body["n"])
+	resp := OrderFromModel(order)
+	if resp.Symbol != "BTC/USDT" {
+		t.Errorf("Symbol = %q, want BTC/USDT", resp.Symbol)
+	}
+	if resp.Side != "BUY" {
+		t.Errorf("Side = %q, want BUY", resp.Side)
+	}
+}
+
+func TestTradeFromModel(t *testing.T) {
+	now := time.Now()
+	trade := &models.Trade{
+		ID: uuid.New(), Symbol: "ETH/USDT", Price: 3000, Quantity: 2,
+		ExecutedAt: now,
+	}
+	resp := TradeFromModel(trade)
+	if resp.Symbol != "ETH/USDT" {
+		t.Errorf("Symbol = %q, want ETH/USDT", resp.Symbol)
+	}
+	if resp.Price != 3000 {
+		t.Errorf("Price = %f, want 3000", resp.Price)
 	}
 }

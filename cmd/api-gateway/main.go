@@ -1,5 +1,3 @@
-// Command api-gateway provides a reverse proxy gateway that routes requests to
-// the appropriate backend microservice based on URL path prefixes.
 package main
 
 import (
@@ -9,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sort"
 	"strings"
 	"syscall"
 	"time"
@@ -17,34 +16,49 @@ import (
 	"github.com/qw-trading/platform/pkg/middleware"
 )
 
-// Gateway routes incoming HTTP requests to backend microservices based on
-// URL path prefixes.
-type Gateway struct {
-	services map[string]string
-	client   *http.Client
+type route struct {
+	prefix string
+	target string
 }
 
-// NewGateway creates a new Gateway with the configured service routes.
-func NewGateway(cfg *config.Config) *Gateway {
+type Gateway struct {
+	routes []route
+	client *http.Client
+}
+
+func NewGateway(_ *config.Config) *Gateway {
+	routes := []route{
+		{"/auth", "http://localhost:8081"},
+		{"/users", "http://localhost:8081"},
+		{"/accounts", "http://localhost:8082"},
+		{"/orders", "http://localhost:8083"},
+		{"/positions", "http://localhost:8084"},
+		{"/portfolio", "http://localhost:8084"},
+		{"/balances", "http://localhost:8084"},
+		{"/market", "http://localhost:8085"},
+		{"/history", "http://localhost:8086"},
+	}
+	sort.Slice(routes, func(i, j int) bool {
+		return len(routes[i].prefix) > len(routes[j].prefix)
+	})
+
 	return &Gateway{
-		services: map[string]string{
-			"/auth":      "http://localhost:8081",
-			"/users":     "http://localhost:8081",
-			"/accounts":  "http://localhost:8082",
-			"/orders":    "http://localhost:8083",
-			"/positions": "http://localhost:8084",
-			"/portfolio": "http://localhost:8084",
-			"/balances":  "http://localhost:8084",
-			"/market":    "http://localhost:8085",
-			"/history":   "http://localhost:8086",
-		},
+		routes: routes,
 		client: &http.Client{Timeout: 30 * time.Second},
 	}
 }
 
-// proxy forwards the request to the target service and streams the response back.
+func (g *Gateway) route(r *http.Request) string {
+	path := r.URL.Path
+	for _, rt := range g.routes {
+		if strings.HasPrefix(path, rt.prefix) {
+			return rt.target
+		}
+	}
+	return ""
+}
+
 func (g *Gateway) proxy(w http.ResponseWriter, r *http.Request, target string) {
-	// Limit request body to 1 MB to prevent abuse.
 	body, err := io.ReadAll(io.LimitReader(r.Body, 1<<20))
 	if err != nil {
 		http.Error(w, `{"error":"failed to read body"}`, http.StatusBadRequest)
@@ -52,19 +66,22 @@ func (g *Gateway) proxy(w http.ResponseWriter, r *http.Request, target string) {
 	}
 	defer r.Body.Close()
 
-	proxyReq, err := http.NewRequestWithContext(r.Context(), r.Method, target+r.URL.Path, strings.NewReader(string(body)))
+	targetURL := target + r.URL.Path
+	if r.URL.RawQuery != "" {
+		targetURL += "?" + r.URL.RawQuery
+	}
+
+	proxyReq, err := http.NewRequestWithContext(r.Context(), r.Method, targetURL, strings.NewReader(string(body)))
 	if err != nil {
 		http.Error(w, `{"error":"failed to create request"}`, http.StatusInternalServerError)
 		return
 	}
 
-	// Forward all original request headers to the backend service.
 	for key, values := range r.Header {
 		for _, value := range values {
 			proxyReq.Header.Add(key, value)
 		}
 	}
-	proxyReq.Header.Set("Content-Type", "application/json")
 
 	resp, err := g.client.Do(proxyReq)
 	if err != nil {
@@ -73,25 +90,15 @@ func (g *Gateway) proxy(w http.ResponseWriter, r *http.Request, target string) {
 	}
 	defer resp.Body.Close()
 
-	w.Header().Set("Content-Type", "application/json")
+	for key, values := range resp.Header {
+		for _, value := range values {
+			w.Header().Add(key, value)
+		}
+	}
 	w.WriteHeader(resp.StatusCode)
 	io.Copy(w, resp.Body)
 }
 
-// route finds the target service URL for the given request path.
-// Returns an empty string if no matching route is found.
-func (g *Gateway) route(r *http.Request) string {
-	path := r.URL.Path
-	for prefix, target := range g.services {
-		if strings.HasPrefix(path, prefix) {
-			return target
-		}
-	}
-	return ""
-}
-
-// ServeHTTP handles incoming requests by routing them to the appropriate
-// backend service or returning a health check response.
 func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == "/health" {
 		w.Header().Set("Content-Type", "application/json")
@@ -129,7 +136,6 @@ func main() {
 		}
 	}()
 
-	// Wait for interrupt signal for graceful shutdown.
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit

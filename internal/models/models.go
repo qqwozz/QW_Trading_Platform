@@ -66,30 +66,6 @@ type Account struct {
 	Status        AccountStatus `json:"status" db:"status"`
 }
 
-// AssetStatus represents the trading state of an asset.
-type AssetStatus string
-
-const (
-	// AssetStatusTrading indicates the asset is available for trading.
-	AssetStatusTrading AssetStatus = "TRADING"
-	// AssetStatusHalted indicates the asset is temporarily suspended from trading.
-	AssetStatusHalted AssetStatus = "HALTED"
-	// AssetStatusDelisted indicates the asset has been permanently removed.
-	AssetStatusDelisted AssetStatus = "DELISTED"
-)
-
-// Asset represents a tradeable instrument with its trading parameters.
-type Asset struct {
-	ID            uuid.UUID   `json:"id" db:"id"`
-	Symbol        string      `json:"symbol" db:"symbol"`
-	BaseCurrency  string      `json:"base_currency" db:"base_currency"`
-	QuoteCurrency string      `json:"quote_currency" db:"quote_currency"`
-	MinOrderSize  float64     `json:"min_order_size" db:"min_order_size"`
-	TickSize      float64     `json:"tick_size" db:"tick_size"`
-	Status        AssetStatus `json:"status" db:"status"`
-	CreatedAt     time.Time   `json:"created_at" db:"created_at"`
-}
-
 // OrderSide indicates whether an order is to buy or sell.
 type OrderSide string
 
@@ -219,23 +195,6 @@ type OrderBookSnapshot struct {
 	Bids      []OrderBookLevel `json:"bids"`
 	Asks      []OrderBookLevel `json:"asks"`
 	CreatedAt time.Time        `json:"created_at" db:"created_at"`
-}
-
-// TickerResponse is the API response format for market ticker data.
-type TickerResponse struct {
-	ID           string  `json:"id"`
-	Symbol       string  `json:"symbol"`
-	LastPrice    float64 `json:"last_price"`
-	BestBid      float64 `json:"best_bid"`
-	BestAsk      float64 `json:"best_ask"`
-	BidVolume    float64 `json:"bid_volume"`
-	AskVolume    float64 `json:"ask_volume"`
-	Volume24h    float64 `json:"volume_24h"`
-	High24h      float64 `json:"high_24h"`
-	Low24h       float64 `json:"low_24h"`
-	Change24h    float64 `json:"change_24h"`
-	ChangePct24h float64 `json:"change_pct_24h"`
-	UpdatedAt    string  `json:"updated_at"`
 }
 
 // OrderBookResponse is the API response format for order book data.
