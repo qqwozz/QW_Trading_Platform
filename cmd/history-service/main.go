@@ -37,10 +37,7 @@ func main() {
 	mux.HandleFunc("GET /history/trades", h.GetTradeHistory)
 	mux.HandleFunc("GET /history/balance", h.GetBalanceHistory)
 	mux.HandleFunc("GET /history/positions", h.GetPositionHistory)
-	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status":"healthy"}`))
-	})
+	mux.HandleFunc("GET /health", db.HealthHandler(database, "history-service"))
 
 	logger := logger.New("history-service")
 	rl := middleware.NewRateLimiter(cfg.RateLimitRPS, cfg.RateLimitBurst)

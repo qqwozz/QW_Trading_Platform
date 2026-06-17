@@ -1,21 +1,19 @@
-// Package db provides PostgreSQL database connectivity and connection management.
 package db
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
+	"net/http"
 	"time"
 
 	_ "github.com/lib/pq"
 )
 
-// Database wraps a sql.DB with connection pool configuration.
 type Database struct {
 	*sql.DB
 }
 
-// Connect opens a PostgreSQL connection using the given DSN and configures
-// the connection pool. It verifies connectivity with a ping before returning.
 func Connect(dsn string, maxOpen, maxIdle int) (*Database, error) {
 	db, err := sql.Open("postgres", dsn)
 	if err != nil {
@@ -33,7 +31,25 @@ func Connect(dsn string, maxOpen, maxIdle int) (*Database, error) {
 	return &Database{db}, nil
 }
 
-// Close closes the underlying database connection pool.
 func (d *Database) Close() error {
 	return d.DB.Close()
+}
+
+func (d *Database) Health(ctx context.Context) error {
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	return d.PingContext(ctx)
+}
+
+func HealthHandler(database *Database, serviceName string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if err := database.Health(r.Context()); err != nil {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			w.Write([]byte(`{"status":"unhealthy","service":"` + serviceName + `","error":"database unreachable"}`))
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"status":"healthy","service":"` + serviceName + `"}`))
+	}
 }

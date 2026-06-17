@@ -35,10 +35,7 @@ func main() {
 
 	mux.HandleFunc("GET /accounts", h.ListAccounts)
 	mux.HandleFunc("POST /accounts/deposit", h.Deposit)
-	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status":"healthy"}`))
-	})
+	mux.HandleFunc("GET /health", db.HealthHandler(database, "account-service"))
 
 	logger := logger.New("account-service")
 	rl := middleware.NewRateLimiter(cfg.RateLimitRPS, cfg.RateLimitBurst)

@@ -41,10 +41,7 @@ func main() {
 	mux.HandleFunc("GET /market/tickers/{symbol}", hdl.GetTicker)
 	mux.HandleFunc("GET /market/orderbook/{symbol}", hdl.GetOrderBook)
 	mux.HandleFunc("GET /market/ws", hdl.HandleWebSocket)
-	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status":"healthy"}`))
-	})
+	mux.HandleFunc("GET /health", db.HealthHandler(database, "market-data-service"))
 
 	logger := logger.New("market-data-service")
 	rl := middleware.NewRateLimiter(cfg.RateLimitRPS, cfg.RateLimitBurst)

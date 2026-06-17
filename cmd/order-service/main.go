@@ -38,10 +38,7 @@ func main() {
 	mux.HandleFunc("GET /orders", h.ListOrders)
 	mux.HandleFunc("GET /orders/{id}", h.GetOrder)
 	mux.HandleFunc("DELETE /orders/{id}", h.CancelOrder)
-	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status":"healthy"}`))
-	})
+	mux.HandleFunc("GET /health", db.HealthHandler(database, "order-service"))
 
 	logger := logger.New("order-service")
 	rl := middleware.NewRateLimiter(cfg.RateLimitRPS, cfg.RateLimitBurst)
