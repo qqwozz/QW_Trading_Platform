@@ -37,7 +37,8 @@ func main() {
 
 	logger := applog.New("portfolio-service")
 	rl := middleware.NewRateLimiter(cfg.RateLimitRPS, cfg.RateLimitBurst)
-	wrapped := middleware.RequestID(middleware.Logger(logger)(rl.Middleware(middleware.CORS(cfg.AllowedOrigins)(mux))))
+	authed := middleware.Auth(cfg.JWTSecret)(mux)
+	wrapped := middleware.RequestID(middleware.Logger(logger)(rl.Middleware(middleware.CORS(cfg.AllowedOrigins)(authed))))
 
 	server.Run("portfolio-service", wrapped, server.DefaultConfig(), logger)
 }

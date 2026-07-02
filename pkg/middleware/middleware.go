@@ -50,7 +50,7 @@ func Auth(jwtSecret string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Allow unauthenticated access to public endpoints.
-			publicPaths := []string{"/v1/auth/register", "/v1/auth/login", "/health", "/docs"}
+			publicPaths := []string{"/v1/auth/register", "/v1/auth/login", "/v1/auth/guest", "/health", "/docs"}
 			for _, path := range publicPaths {
 				if strings.HasPrefix(r.URL.Path, path) {
 					next.ServeHTTP(w, r)

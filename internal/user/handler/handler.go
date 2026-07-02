@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"database/sql"
 	"encoding/json"
 	"net/http"
 	"strings"
@@ -33,10 +34,11 @@ type Handler struct {
 	repo      repository.UserRepositoryInterface
 	jwtSecret string
 	jwtExpiry int
+	db        *sql.DB
 }
 
-func New(repo repository.UserRepositoryInterface, jwtSecret string, jwtExpiry int) *Handler {
-	return &Handler{repo: repo, jwtSecret: jwtSecret, jwtExpiry: jwtExpiry}
+func New(repo repository.UserRepositoryInterface, jwtSecret string, jwtExpiry int, db *sql.DB) *Handler {
+	return &Handler{repo: repo, jwtSecret: jwtSecret, jwtExpiry: jwtExpiry, db: db}
 }
 
 type RegisterRequest struct {
@@ -216,6 +218,79 @@ func validateRegister(req *RegisterRequest) error {
 		return errors.BadRequest("password must be at least 8 characters")
 	}
 	return nil
+}
+
+func (h *Handler) GuestLogin(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+
+	var req RegisterRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.BadRequest(w, "invalid request body")
+		return
+	}
+
+	exists, _ := h.repo.EmailExists(r.Context(), req.Email)
+	if exists {
+		user, err := h.repo.GetByEmail(r.Context(), req.Email)
+		if err != nil {
+			response.InternalError(w, "failed to get user")
+			return
+		}
+		accessToken, _ := h.generateToken(user.ID, time.Duration(h.jwtExpiry)*time.Hour)
+		refreshToken, _ := h.generateToken(user.ID, 7*24*time.Hour)
+		response.Success(w, AuthResponse{
+			AccessToken:  accessToken,
+			RefreshToken: refreshToken,
+			ExpiresIn:    h.jwtExpiry * 3600,
+		})
+		return
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if err != nil {
+		response.InternalError(w, "failed to hash password")
+		return
+	}
+
+	user := &models.User{
+		ID:           uuid.New(),
+		Email:        req.Email,
+		Username:     req.Username,
+		PasswordHash: string(hash),
+		Status:       models.UserStatusActive,
+	}
+
+	if err := h.repo.Create(r.Context(), user); err != nil {
+		response.InternalError(w, "failed to create user")
+		return
+	}
+
+	accountID := uuid.New()
+	if _, err := h.db.ExecContext(r.Context(),
+		`INSERT INTO accounts (id, user_id, type, balance, frozen_balance, currency, status) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+		accountID, user.ID, models.AccountTypeCash, 1000.0, 0.0, "USDT", models.AccountStatusActive,
+	); err != nil {
+		response.InternalError(w, "failed to create account")
+		return
+	}
+
+	accessToken, err := h.generateToken(user.ID, time.Duration(h.jwtExpiry)*time.Hour)
+	if err != nil {
+		response.InternalError(w, "failed to generate token")
+		return
+	}
+
+	refreshToken, err := h.generateToken(user.ID, 7*24*time.Hour)
+	if err != nil {
+		response.InternalError(w, "failed to generate refresh token")
+		return
+	}
+
+	response.Success(w, AuthResponse{
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+		ExpiresIn:    h.jwtExpiry * 3600,
+	})
 }
 
 func (h *Handler) generateToken(userID uuid.UUID, expiry time.Duration) (string, error) {

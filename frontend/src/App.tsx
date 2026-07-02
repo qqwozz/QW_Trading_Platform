@@ -14,21 +14,38 @@ function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (getToken()) {
-      api.auth.me()
-        .then(res => setUser(res.data))
-        .catch(() => { clearToken(); })
-        .finally(() => setLoading(false));
-    } else {
+    const init = async () => {
+      if (getToken()) {
+        try {
+          const res = await api.auth.me();
+          setUser(res);
+        } catch {
+          clearToken();
+        }
+      } else {
+        try {
+          const id = crypto.randomUUID().slice(0, 8);
+          const email = `guest-${id}@guest.local`;
+          const username = `guest_${id}`;
+          const password = `guest_${id}_pass!`;
+          const res = await api.auth.guest(email, username, password);
+          setToken(res.access_token);
+          const me = await api.auth.me();
+          setUser(me);
+        } catch {
+          // server may be unavailable, stay unauthenticated
+        }
+      }
       setLoading(false);
-    }
+    };
+    init();
   }, []);
 
   const handleLogin = async (email: string, password: string) => {
     const res = await api.auth.login(email, password);
     setToken(res.access_token);
     const me = await api.auth.me();
-    setUser(me.data);
+    setUser(me);
   };
 
   const handleRegister = async (email: string, username: string, password: string) => {
@@ -54,7 +71,7 @@ function App() {
       <Routes>
         <Route path="/login" element={!user ? <LoginPage onLogin={handleLogin} /> : <Navigate to="/" />} />
         <Route path="/register" element={!user ? <RegisterPage onRegister={handleRegister} /> : <Navigate to="/" />} />
-        <Route path="/" element={user ? <Layout user={user} onLogout={handleLogout} /> : <Navigate to="/login" />}>
+        <Route path="/" element={user ? <Layout user={user} onLogout={handleLogout} /> : <Navigate to="/" />}>
           <Route index element={<DashboardPage />} />
           <Route path="trade" element={<TradePage />} />
           <Route path="portfolio" element={<PortfolioPage />} />

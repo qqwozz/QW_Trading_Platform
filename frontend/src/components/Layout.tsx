@@ -13,12 +13,12 @@ export default function Layout({ user, onLogout }: { user: { email: string; user
 
   return (
     <div className="flex h-screen">
-      <aside className="w-60 flex flex-col" style={{ background: '#1e2329' }}>
-        <div className="p-4 border-b" style={{ borderColor: '#2b3139' }}>
-          <div className="text-xl font-bold" style={{ color: '#fcd535' }}>QW Trading</div>
-          <div className="text-xs mt-1" style={{ color: '#848e9c' }}>Exchange Platform</div>
+      <aside className="w-60 flex flex-col" style={{ background: '#1e2329', borderRight: '1px solid #2b3139' }}>
+        <div className="p-5 border-b" style={{ borderColor: '#2b3139' }}>
+          <div className="text-xl font-bold tracking-wide" style={{ color: '#fcd535' }}>QW Trading</div>
+          <div className="text-xs mt-1 tracking-wider" style={{ color: '#848e9c' }}>Exchange Platform</div>
         </div>
-        <nav className="flex-1 p-3">
+        <nav className="flex-1 p-3 mt-2">
           {navItems.map(item => {
             const Icon = item.icon;
             const active = location.pathname === item.path;
@@ -26,10 +26,23 @@ export default function Layout({ user, onLogout }: { user: { email: string; user
               <Link
                 key={item.path}
                 to={item.path}
-                className="flex items-center gap-3 px-3 py-2.5 rounded-lg mb-1 text-sm transition-colors"
+                className="flex items-center gap-3 px-3 py-2.5 rounded-lg mb-1 text-sm transition-all duration-200"
                 style={{
-                  background: active ? '#2b3139' : 'transparent',
+                  background: active ? 'linear-gradient(135deg, rgba(252,213,53,0.12), rgba(252,213,53,0.04))' : 'transparent',
                   color: active ? '#fcd535' : '#848e9c',
+                  borderLeft: active ? '3px solid #fcd535' : '3px solid transparent',
+                }}
+                onMouseEnter={(e) => {
+                  if (!active) {
+                    e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
+                    e.currentTarget.style.color = '#eaecef';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!active) {
+                    e.currentTarget.style.background = 'transparent';
+                    e.currentTarget.style.color = '#848e9c';
+                  }
                 }}
               >
                 <Icon size={18} />
@@ -39,8 +52,14 @@ export default function Layout({ user, onLogout }: { user: { email: string; user
           })}
         </nav>
         <div className="p-3 border-t" style={{ borderColor: '#2b3139' }}>
-          <div className="flex items-center gap-2 mb-2">
-            <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold" style={{ background: '#fcd535', color: '#0b0e11' }}>
+          <div className="flex items-center gap-2.5 mb-3 px-2">
+            <div
+              className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold"
+              style={{
+                background: 'linear-gradient(135deg, #fcd535, #f0b90b)',
+                color: '#0b0e11',
+              }}
+            >
               {user.username[0].toUpperCase()}
             </div>
             <div className="flex-1 min-w-0">
@@ -50,8 +69,16 @@ export default function Layout({ user, onLogout }: { user: { email: string; user
           </div>
           <button
             onClick={onLogout}
-            className="flex items-center gap-2 w-full px-3 py-2 rounded-lg text-sm transition-colors"
+            className="flex items-center gap-2 w-full px-3 py-2 rounded-lg text-sm transition-all duration-200"
             style={{ color: '#848e9c' }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'rgba(246,70,93,0.1)';
+              e.currentTarget.style.color = '#f6465d';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'transparent';
+              e.currentTarget.style.color = '#848e9c';
+            }}
           >
             <LogOut size={16} />
             Logout

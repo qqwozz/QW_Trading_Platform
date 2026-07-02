@@ -136,89 +136,104 @@ std::vector<Trade> OrderBook::match_market(Order& order) {
 
 std::vector<Trade> OrderBook::match_against(Order& incoming, bool check_price) {
     std::vector<Trade> trades;
-    auto& opposite = incoming.is_buy() ? asks_ : bids_;
 
-    for (auto it = opposite.begin(); it != opposite.end() && incoming.remaining() > 0;) {
-        auto& level = it->second;
+    auto do_match = [&](auto& opposite, auto end) {
+        for (auto it = opposite.begin(); it != end && incoming.remaining() > 0;) {
+            auto& level = it->second;
 
-        if (check_price) {
-            if (incoming.is_buy() && incoming.price < level.price) break;
-            if (!incoming.is_buy() && incoming.price > level.price) break;
-        }
-
-        for (auto oid = level.order_ids.begin(); oid != level.order_ids.end() && incoming.remaining() > 0;) {
-            auto oit = orders_.find(*oid);
-            if (oit == orders_.end()) {
-                oid = level.order_ids.erase(oid);
-                continue;
+            if (check_price) {
+                if (incoming.is_buy() && incoming.price < level.price) return;
+                if (!incoming.is_buy() && incoming.price > level.price) return;
             }
 
-            Order& counter = oit->second;
-            double avail = remaining_[*oid];
-            double qty = std::min(incoming.remaining(), avail);
+            for (auto oid = level.order_ids.begin(); oid != level.order_ids.end() && incoming.remaining() > 0;) {
+                auto oit = orders_.find(*oid);
+                if (oit == orders_.end()) {
+                    oid = level.order_ids.erase(oid);
+                    continue;
+                }
 
-            Trade trade;
-            trade.id = std::to_string(++trade_counter);
-            trade.symbol = symbol_;
-            trade.price = level.price;
-            trade.quantity = qty;
+                Order& counter = oit->second;
+                double avail = remaining_[*oid];
+                double qty = std::min(incoming.remaining(), avail);
 
-            if (incoming.is_buy()) {
-                trade.buy_order_id = incoming.id;
-                trade.sell_order_id = counter.id;
-                trade.buyer_id = incoming.user_id;
-                trade.seller_id = counter.user_id;
+                Trade trade;
+                trade.id = std::to_string(++trade_counter);
+                trade.symbol = symbol_;
+                trade.price = level.price;
+                trade.quantity = qty;
+
+                if (incoming.is_buy()) {
+                    trade.buy_order_id = incoming.id;
+                    trade.sell_order_id = counter.id;
+                    trade.buyer_id = incoming.user_id;
+                    trade.seller_id = counter.user_id;
+                } else {
+                    trade.buy_order_id = counter.id;
+                    trade.sell_order_id = incoming.id;
+                    trade.buyer_id = counter.user_id;
+                    trade.seller_id = incoming.user_id;
+                }
+
+                double amount = trade.price * trade.quantity;
+                trade.buyer_fee = calc_fee(amount, true);
+                trade.seller_fee = calc_fee(amount, false);
+                trade.executed_at = std::chrono::steady_clock::now();
+
+                incoming.filled += qty;
+                counter.filled += qty;
+                remaining_[counter.id] = counter.remaining();
+                level.total_qty -= qty;
+                last_price_ = trade.price;
+
+                if (counter.remaining() <= 0) {
+                    counter.status = OrderStatus::FILLED;
+                    oid = level.order_ids.erase(oid);
+                    if (on_order_) on_order_(counter);
+                } else {
+                    counter.status = OrderStatus::PARTIAL;
+                    ++oid;
+                }
+
+                if (on_trade_) on_trade_(trade);
+                trades.push_back(trade);
+            }
+
+            if (level.order_ids.empty() || level.total_qty <= 0) {
+                it = opposite.erase(it);
             } else {
-                trade.buy_order_id = counter.id;
-                trade.sell_order_id = incoming.id;
-                trade.buyer_id = counter.user_id;
-                trade.seller_id = incoming.user_id;
+                ++it;
             }
-
-            double amount = trade.price * trade.quantity;
-            trade.buyer_fee = calc_fee(amount, true);
-            trade.seller_fee = calc_fee(amount, false);
-            trade.executed_at = std::chrono::steady_clock::now();
-
-            incoming.filled += qty;
-            counter.filled += qty;
-            remaining_[counter.id] = counter.remaining();
-            level.total_qty -= qty;
-            last_price_ = trade.price;
-
-            if (counter.remaining() <= 0) {
-                counter.status = OrderStatus::FILLED;
-                oid = level.order_ids.erase(oid);
-                if (on_order_) on_order_(counter);
-            } else {
-                counter.status = OrderStatus::PARTIAL;
-                ++oid;
-            }
-
-            if (on_trade_) on_trade_(trade);
-            trades.push_back(trade);
         }
+    };
 
-        if (level.order_ids.empty() || level.total_qty <= 0) {
-            it = opposite.erase(it);
-        } else {
-            ++it;
-        }
+    if (incoming.is_buy()) {
+        do_match(asks_, asks_.end());
+    } else {
+        do_match(bids_, bids_.end());
     }
+
     return trades;
 }
 
 void OrderBook::insert_to_book(const Order& order) {
-    auto& book = order.is_buy() ? bids_ : asks_;
-    auto it = book.find(order.price);
-    if (it == book.end()) {
-        PriceLevel level(order.price);
-        level.total_qty = order.remaining();
-        level.order_ids.push_back(order.id);
-        book.emplace(order.price, std::move(level));
+    auto insert_into = [&](auto& book) {
+        auto it = book.find(order.price);
+        if (it == book.end()) {
+            PriceLevel level(order.price);
+            level.total_qty = order.remaining();
+            level.order_ids.push_back(order.id);
+            book.emplace(order.price, std::move(level));
+        } else {
+            it->second.total_qty += order.remaining();
+            it->second.order_ids.push_back(order.id);
+        }
+    };
+
+    if (order.is_buy()) {
+        insert_into(bids_);
     } else {
-        it->second.total_qty += order.remaining();
-        it->second.order_ids.push_back(order.id);
+        insert_into(asks_);
     }
 }
 
@@ -227,15 +242,22 @@ void OrderBook::remove_from_book(const std::string& order_id) {
     if (oit == orders_.end()) return;
 
     const Order& order = oit->second;
-    auto& book = order.is_buy() ? bids_ : asks_;
 
-    auto lit = book.find(order.price);
-    if (lit != book.end()) {
-        lit->second.total_qty -= remaining_[order_id];
-        lit->second.order_ids.remove(order_id);
-        if (lit->second.total_qty <= 0 || lit->second.order_ids.empty()) {
-            book.erase(lit);
+    auto remove_from = [&](auto& book) {
+        auto lit = book.find(order.price);
+        if (lit != book.end()) {
+            lit->second.total_qty -= remaining_[order_id];
+            lit->second.order_ids.remove(order_id);
+            if (lit->second.total_qty <= 0 || lit->second.order_ids.empty()) {
+                book.erase(lit);
+            }
         }
+    };
+
+    if (order.is_buy()) {
+        remove_from(bids_);
+    } else {
+        remove_from(asks_);
     }
 
     orders_.erase(order_id);

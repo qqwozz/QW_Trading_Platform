@@ -25,17 +25,19 @@ func main() {
 	defer database.Close()
 
 	repo := repository.New(database)
-	h := handler.New(repo, cfg.JWTSecret, cfg.JWTExpiry)
+	h := handler.New(repo, cfg.JWTSecret, cfg.JWTExpiry, database.DB)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /v1/auth/register", h.Register)
 	mux.HandleFunc("POST /v1/auth/login", h.Login)
+	mux.HandleFunc("POST /v1/auth/guest", h.GuestLogin)
 	mux.HandleFunc("GET /v1/users/me", h.GetProfile)
 	mux.HandleFunc("GET /health", db.HealthHandler(database, "user-service"))
 
 	logger := applog.New("user-service")
 	rl := middleware.NewRateLimiter(cfg.RateLimitRPS, cfg.RateLimitBurst)
-	wrapped := middleware.RequestID(middleware.Logger(logger)(rl.Middleware(middleware.CORS(cfg.AllowedOrigins)(mux))))
+	authed := middleware.Auth(cfg.JWTSecret)(mux)
+	wrapped := middleware.RequestID(middleware.Logger(logger)(rl.Middleware(middleware.CORS(cfg.AllowedOrigins)(authed))))
 
 	server.Run("user-service", wrapped, server.DefaultConfig(), logger)
 }

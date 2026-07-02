@@ -1,11 +1,13 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"os"
 
 	"github.com/qw-trading/platform/internal/db"
+	"github.com/qw-trading/platform/internal/market/feeder"
 	"github.com/qw-trading/platform/internal/market/handler"
 	"github.com/qw-trading/platform/internal/market/hub"
 	"github.com/qw-trading/platform/internal/market/repository"
@@ -30,6 +32,9 @@ func main() {
 
 	repo := repository.New(database)
 	hdl := handler.New(repo, h)
+
+	f := feeder.NewFeeder(repo)
+	f.Start(context.Background())
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /v1/market/tickers", hdl.ListTickers)

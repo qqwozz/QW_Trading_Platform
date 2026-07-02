@@ -39,10 +39,13 @@ func (r *UserRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.Use
 		&user.ID, &user.Email, &user.Username, &user.PasswordHash,
 		&user.CreatedAt, &user.UpdatedAt, &user.Status,
 	)
-	if err == sql.ErrNoRows {
-		return nil, apperr.NotFound("user not found")
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, apperr.NotFound("user not found")
+		}
+		return nil, apperr.InternalErr("failed to get user", err)
 	}
-	return user, apperr.InternalErr("failed to get user", err)
+	return user, nil
 }
 
 func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*models.User, error) {
@@ -55,10 +58,13 @@ func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*models.
 		&user.ID, &user.Email, &user.Username, &user.PasswordHash,
 		&user.CreatedAt, &user.UpdatedAt, &user.Status,
 	)
-	if err == sql.ErrNoRows {
-		return nil, apperr.NotFound("user not found")
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, apperr.NotFound("user not found")
+		}
+		return nil, apperr.InternalErr("failed to get user", err)
 	}
-	return user, apperr.InternalErr("failed to get user", err)
+	return user, nil
 }
 
 func (r *UserRepository) EmailExists(ctx context.Context, email string) (bool, error) {

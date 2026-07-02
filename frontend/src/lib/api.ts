@@ -43,7 +43,12 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ email, password }),
       }),
-    me: () => request<{ data: { id: string; email: string; username: string; created_at: string } }>('/users/me'),
+    guest: (email: string, username: string, password: string) =>
+      request<{ access_token: string; refresh_token: string; expires_in: number }>('/auth/guest', {
+        method: 'POST',
+        body: JSON.stringify({ email, username, password }),
+      }),
+    me: () => request<{ id: string; email: string; username: string; created_at: string }>('/users/me'),
   },
   accounts: {
     list: () => request<{ data: { accounts: Array<{ id: string; type: string; balance: number; frozen_balance: number; currency: string; status: string }> } }>('/accounts'),

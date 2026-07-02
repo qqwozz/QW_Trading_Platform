@@ -24,17 +24,31 @@ type Gateway struct {
 	client *http.Client
 }
 
+func envOrDefault(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return fallback
+}
+
 func NewGateway(_ *config.Config) *Gateway {
+	userSvc := envOrDefault("USER_SERVICE_URL", "http://localhost:8081")
+	accountSvc := envOrDefault("ACCOUNT_SERVICE_URL", "http://localhost:8082")
+	orderSvc := envOrDefault("ORDER_SERVICE_URL", "http://localhost:8083")
+	portfolioSvc := envOrDefault("PORTFOLIO_SERVICE_URL", "http://localhost:8084")
+	marketSvc := envOrDefault("MARKET_SERVICE_URL", "http://localhost:8085")
+	historySvc := envOrDefault("HISTORY_SERVICE_URL", "http://localhost:8086")
+
 	routes := []route{
-		{"/v1/auth", "http://localhost:8081"},
-		{"/v1/users", "http://localhost:8081"},
-		{"/v1/accounts", "http://localhost:8082"},
-		{"/v1/orders", "http://localhost:8083"},
-		{"/v1/positions", "http://localhost:8084"},
-		{"/v1/portfolio", "http://localhost:8084"},
-		{"/v1/balances", "http://localhost:8084"},
-		{"/v1/market", "http://localhost:8085"},
-		{"/v1/history", "http://localhost:8086"},
+		{"/v1/auth", userSvc},
+		{"/v1/users", userSvc},
+		{"/v1/accounts", accountSvc},
+		{"/v1/orders", orderSvc},
+		{"/v1/positions", portfolioSvc},
+		{"/v1/portfolio", portfolioSvc},
+		{"/v1/balances", portfolioSvc},
+		{"/v1/market", marketSvc},
+		{"/v1/history", historySvc},
 	}
 	sort.Slice(routes, func(i, j int) bool {
 		return len(routes[i].prefix) > len(routes[j].prefix)

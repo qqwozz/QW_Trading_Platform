@@ -36,7 +36,8 @@ func main() {
 
 	logger := applog.New("history-service")
 	rl := middleware.NewRateLimiter(cfg.RateLimitRPS, cfg.RateLimitBurst)
-	wrapped := middleware.RequestID(middleware.Logger(logger)(rl.Middleware(middleware.CORS(cfg.AllowedOrigins)(mux))))
+	authed := middleware.Auth(cfg.JWTSecret)(mux)
+	wrapped := middleware.RequestID(middleware.Logger(logger)(rl.Middleware(middleware.CORS(cfg.AllowedOrigins)(authed))))
 
 	server.Run("history-service", wrapped, server.DefaultConfig(), logger)
 }
